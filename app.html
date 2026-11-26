@@ -1127,7 +1127,14 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   .main > .page.active { flex: 1; display: flex; flex-direction: column; }
   .main > .page.active > .panel { flex: 1; margin-bottom: 0; border-radius: 16px; }
   html, body { min-height: 100%; }
-  #agendaGrade { padding-bottom: 72px; }
+  /* Agenda: tela travada; só a lista de horários rola */
+  html:has(body.gc-ag), body.gc-ag { height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+  body.gc-ag .app { height: 100dvh; }
+  body.gc-ag .main { height: 100dvh; min-height: 0; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); }
+  body.gc-ag .main > .page.active { min-height: 0; }
+  body.gc-ag .main > .page.active > .panel { min-height: 0; display: flex; flex-direction: column; padding: 8px 8px 0; overflow: hidden; border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }
+  body.gc-ag #agendaPainel { flex: none; }
+  body.gc-ag #agendaGrade { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; margin-top: 0; padding-bottom: 64px; }
   .top-date, .page-subtitle, #faixaPendencias { display: none !important; }
   .menu-toggle-btn { display: inline-flex !important; align-items: center; justify-content: center; width: 30px; height: 30px; min-height: 0; border-radius: 9px; background: #fff; border: 1px solid var(--border); margin-right: 8px; font-size: 14px; padding: 0; }
   .topbar-left { display: flex; align-items: center; }
@@ -7113,7 +7120,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   }
   var orig = window.renderizarAgendaGrade;
   if (typeof orig === 'function') {
-    window.renderizarAgendaGrade = function(){ var r = orig.apply(this, arguments); try{ transformar(); }catch(e){ console.error(e); } return r; };
+    window.renderizarAgendaGrade = function(){ if (mob()) document.body.classList.add('gc-ag'); var r = orig.apply(this, arguments); try{ transformar(); }catch(e){ console.error(e); } return r; };
   }
 
   var origP = window.renderizarPainelAgenda;
@@ -7267,6 +7274,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   if (mb) { mb.removeAttribute('onclick'); mb.addEventListener('click', function(e){ if (mob()) { e.stopPropagation(); montarMenu(); } else alternarMenu(); }); }
   var abrirOrig = window.abrirPagina;
   window.abrirPagina = function(p){
+    document.body.classList.toggle('gc-ag', p === 'Agenda' && mob());
     var r = abrirOrig.apply(this, arguments);
     if (mob() && p !== 'Agenda' && !window.__gcVoltando && (!history.state || !history.state.gc)) { try{ history.pushState({gc:1}, ''); }catch(e){} }
     return r;
