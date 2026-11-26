@@ -1235,6 +1235,22 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   body[data-aba="Pacientes"] #tableWrap :is(th, td) { padding-left: 6px; padding-right: 6px; }
   body[data-aba="Pacientes"] #tableWrap td:nth-child(2) { white-space: nowrap; font-size: 12.5px; }
 
+  /* Pós-operatório: cartões compactos */
+  body[data-aba="Pós-operatório"] #tableWrap thead { display: none; }
+  body[data-aba="Pós-operatório"] #tableWrap table { min-width: 0 !important; width: 100% !important; }
+  body[data-aba="Pós-operatório"] #tableWrap td.gc-po-td { padding: 9px 8px; max-width: none; }
+  .gc-po { display: flex; gap: 8px; align-items: flex-start; }
+  .gc-po .po-main { flex: 1; min-width: 0; }
+  .po-nome { font-size: 13px; font-weight: 700; line-height: 1.25; }
+  .po-proc { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .po-et { margin-top: 6px; border: 0; border-radius: 999px; padding: 0 11px; min-height: 28px; font: inherit; font-size: 11.5px; font-weight: 700; background: #FFF1DD; color: #A8620D; }
+  .po-et.atraso { background: #FCE4E4; color: #B93C3C; }
+  .po-et.retorno { background: #E4EDF9; color: #2F5B9E; }
+  .po-et.ok { background: #E1F3EA; color: #1E6B49; }
+  .po-et:disabled { opacity: 1; }
+  .gc-po .po-edit { flex: none; width: 34px; height: 34px; min-width: 34px; min-height: 34px; }
+  .gc-excluir { display: block; width: 100%; margin: 6px 0 4px; min-height: 40px; border: 0; background: transparent; color: #C23A3A; font: inherit; font-size: 13px; font-weight: 700; }
+
   /* Listas e tabelas legíveis */
   .table-wrap { border-radius: 12px; }
   td { font-size: 13px; padding: 12px 10px; max-width: 60vw; white-space: normal; word-break: break-word; }
@@ -1303,6 +1319,10 @@ html[data-tema="escuro"] .ag-dia.hoje.ativo .d { color: #fff; }
 html[data-tema="escuro"] .nt-cab h2, html[data-tema="escuro"] .nt-cab h1 { color: var(--text); }
 html[data-tema="escuro"] .nt-novo, html[data-tema="escuro"] .nt-vazio, html[data-tema="escuro"] .nt-mes { color: var(--muted); }
 html[data-tema="escuro"] .nt-novo-ico { background: #323B48; }
+html[data-tema="escuro"] .po-et { background: #3C2F1B; color: #F0B766; }
+html[data-tema="escuro"] .po-et.atraso { background: #3A2326; color: #F08A8A; }
+html[data-tema="escuro"] .po-et.retorno { background: #22304A; color: #9DBDEB; }
+html[data-tema="escuro"] .po-et.ok { background: #1F3A30; color: #7ED1A6; }
 html[data-tema="escuro"] ::placeholder { color: #7D8696; }
 html[data-tema="escuro"] .modal-overlay { background: rgba(0,0,0,.6); }
 
@@ -1398,6 +1418,7 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
   body .module-toolbar .toolbar-right { width: auto; flex: none; }
   body .module-toolbar .toolbar-right > * { flex: none; }
 }
+@media print { #gcSair, #gcLogin, #gcPerfil, #gcMicBox, #gcMenu, #gcBalao, .gc-perfil-btn, .gc-lupa { display: none !important; } }
 </style></head>
 <body>
 <div id="gcLogin">
@@ -7642,5 +7663,59 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   })();
 
   (function(){ var e = document.querySelector('.toolbar-right .btn-secondary'), n = document.getElementById('btnNovoRegistro'); if (e) { e.title = 'Exportar PDF'; e.setAttribute('aria-label','Exportar PDF'); } if (n) { n.title = 'Novo registro'; n.setAttribute('aria-label','Novo registro'); } })();
+
+  /* Pós-operatório no celular: cartão compacto com o próximo passo */
+  function etiquetaPos(r){
+    var hoje = dataHojeISO();
+    function dt(c){ var d = converterParaISO(r[c]); return d ? ' · ' + formatarData(d).slice(0,5) : ''; }
+    function passou(c){ var d = converterParaISO(r[c]); return !!d && d < hoje; }
+    if (!igual(r['Status do 1º contato'],'Realizado')) return {t:'1º contato · pendente'+dt('Data do 1º contato'), c: passou('Data do 1º contato')?'atraso':'', a:'p1'};
+    if (!igual(r['Status do 2º contato'],'Realizado')) return {t:'2º contato · pendente'+dt('Data do 2º contato'), c: passou('Data do 2º contato')?'atraso':'', a:'p2'};
+    if (!igual(r['Retorno agendado?'],'Sim')) return {t:'Retorno a agendar', c:'retorno', a:'ret'};
+    return {t:'Concluído ✓', c:'ok', a:''};
+  }
+  function transformarPos(){
+    if (!mob() || typeof abaAtual==='undefined' || abaAtual!=='Pós-operatório') return;
+    var corpo = document.getElementById('tableBody'); if (!corpo) return;
+    corpo.querySelectorAll('tr').forEach(function(tr){
+      if (tr.dataset.gc) return;
+      var ed = tr.querySelector('.actions .icon-btn[title^="Preencher"]'); if (!ed) return;
+      var m = /abrirModal\('([^']*)'/.exec(ed.getAttribute('onclick')||''); if (!m) return;
+      var id = m[1], r = (dados['Pós-operatório']||[]).find(function(x){ return String(x.ID)===String(id); }); if (!r) return;
+      var e = etiquetaPos(r), proc = String(r['Procedimento']||''); try { proc = formatarProcedimento(proc); } catch(x){}
+      tr.dataset.gc = '1';
+      tr.innerHTML = '<td colspan="9" class="gc-po-td"><div class="gc-po"><div class="po-main"><div class="po-nome">'+escaparHTML(String(r['Paciente']||''))+'</div>' +
+        (proc ? '<div class="po-proc">'+escaparHTML(proc)+'</div>' : '') +
+        '<button type="button" class="po-et '+e.c+'" data-id="'+escaparAtributo(id)+'" data-a="'+e.a+'"'+(e.a?'':' disabled')+'>'+escaparHTML(e.t)+'</button></div>' +
+        '<button type="button" class="icon-btn po-edit" title="Editar" onclick="abrirModal(\''+escaparAtributo(id)+'\')">✎</button></div></td>';
+    });
+  }
+  var rtOrig = window.renderizarTabela;
+  if (typeof rtOrig === 'function') window.renderizarTabela = function(){ var r = rtOrig.apply(this, arguments); try { transformarPos(); } catch(e){ console.error(e); } return r; };
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('.po-et'); if (!b || !mob() || b.disabled) return;
+    var id = b.dataset.id, r = (dados['Pós-operatório']||[]).find(function(x){ return String(x.ID)===String(id); }); if (!r) return;
+    var nome = primeiroNome(r['Paciente']||''), a = b.dataset.a;
+    if (a==='ret') { perguntarSimNao('Retorno agendado?', nome + ' já teve o retorno agendado?', function(){ executarAlternancia('Pós-operatório', id, 'alternarRetorno'); }, null); return; }
+    var n = a==='p1' ? '1º' : '2º', prev = converterParaISO(r['Data do '+n+' contato']);
+    if (prev && prev > dataHojeISO()) { executarAlternancia('Pós-operatório', id, a==='p1' ? 'alternarPos1' : 'alternarPos2'); return; }
+    perguntarSimNao('Confirmar contato?', 'Você já fez o ' + n + ' contato com ' + nome + '?', function(){ executarAlternancia('Pós-operatório', id, a==='p1' ? 'alternarPos1' : 'alternarPos2'); }, null);
+  });
+  /* excluir dentro do formulário de editar (pós-operatório) */
+  var amOrig = window.abrirModal;
+  if (typeof amOrig === 'function') window.abrirModal = function(id){
+    var r = amOrig.apply(this, arguments);
+    try {
+      if (mob() && abaAtual==='Pós-operatório' && id && !document.getElementById('gcExcluirPos')) {
+        var ft = document.querySelector('#modalOverlay .modal-footer');
+        if (ft && !(typeof ehRegistroVirtual==='function' && ehRegistroVirtual(id))) {
+          var b = document.createElement('button'); b.type='button'; b.id='gcExcluirPos'; b.className='gc-excluir'; b.textContent='Excluir este registro';
+          b.addEventListener('click', function(){ fecharModal(); confirmarExclusao(id); });
+          ft.parentNode.insertBefore(b, ft.nextSibling);
+        }
+      }
+    } catch(e){ console.error(e); }
+    return r;
+  };
 })();</script></body>
 </html>
