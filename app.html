@@ -1147,7 +1147,7 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   /* Agenda: um dia por vez, linhas compactas */
   .ag-semana { padding: 0; }
   .ag-semana .titulo { display: flex; align-items: center; justify-content: center; margin: 0 0 2px; font-size: 14px; }
-  .ag-semana .titulo .sub, .ag-semana .bol-chips { display: none !important; }
+  .ag-semana .titulo, .ag-semana .bol-chips { display: none !important; }
   .gc-faixa { font-weight: 800; font-size: 14px; color: var(--blue-dark); }
   .gc-seta { min-height: 32px; min-width: 40px; border: 0; background: transparent; font-size: 24px; line-height: 1; color: var(--blue-dark); padding: 0; }
   .ag-dias { display: grid !important; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; padding: 2px 0 6px; overflow: visible; }
@@ -1172,18 +1172,16 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   .ag-slot.gc-dois .ag-item { flex: 1 1 calc(50% - 4px); min-width: 0; }
   .ag-slot.gc-dois .ag-livre { display: none; }
   .ag-item { position: relative; display: block; padding: 5px 8px; border-radius: 8px; border: 1px solid #E4E1DA; border-left: 5px solid var(--st, #C9C3B8); background: #F7F5F0; min-height: 30px; transition: transform .18s; touch-action: pan-y; }
-  .ag-item.t-orto { background: #FCE7F1; border-color: #F2B8D2;  }
-  .ag-item.t-aval { background: #E3F0FD; border-color: #BCD8F5;  }
-  .ag-item.t-ret  { background: #E4F5EA; border-color: #BFE3CC;  }
-  .ag-item.t-cir  { background: #EFE8FB; border-color: #D5C6F2;  }
-  .ag-item.t-limp { background: #E2F5F5; border-color: #B9E2E2;  }
-  .ag-item.t-out  { background: #FBF1DF; border-color: #EBD9B5;  }
+  .ag-item.t-orto { background: #F7C6DC; border-color: #EBA9C7; }
+  .ag-item.t-ret  { background: #E9D8C4; border-color: #D8C2A8; }
+  .ag-item.t-aval { background: #FBEFB0; border-color: #EBDC8C; }
+  .ag-item.t-out  { background: #fff; border-color: #E4E1DA; }
   .ag-item.ag-item[class*=" s-"] { border-left-color: var(--st, #C9C3B8); }
   .ag-item .nome { font-size: 12px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ag-item .nome .status { display: none; }
   .ag-item.aberto .nome { white-space: normal; }
-  .ag-item.s-pendente { --st: #E0A52E; } .ag-item.s-avisado { --st: #4D7BC4; } .ag-item.s-confirmado { --st: #2FA56F; }
-  .ag-item.s-compareceu { --st: #14684A; } .ag-item.s-faltou { --st: #D64545; } .ag-item.s-desmarcou, .ag-item.s-cancelado { --st: #9AA0A9; }
+  .ag-item.s-pendente, .ag-item.s-avisado { --st: #F2C230; } .ag-item.s-confirmado { --st: #1B7F4F; }
+  .ag-item.s-compareceu { --st: #8FD6A8; } .ag-item.s-faltou { --st: #111; } .ag-item.s-desmarcou, .ag-item.s-cancelado { --st: #9AA0A9; }
   .ag-slot.gc-um .ag-item .nome, .ag-item .nome { text-transform: none; }
   .ag-item .sub, .ag-item .st-chips, .ag-item .actions { display: none; }
   .ag-item.aberto .sub { display: block; margin-top: 6px; font-size: 12px; }
@@ -7060,11 +7058,9 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   function mob(){ return mq.matches; }
   function tipoDe(p){
     p = String(p||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-    if (/ortod|\borto\b/.test(p)) return 'orto';
-    if (/avalia|consulta|1a vez|primeira/.test(p)) return 'aval';
-    if (/retorno|manuten|revis|controle|ajuste/.test(p)) return 'ret';
-    if (/cirurg|implant|extra|enxerto/.test(p)) return 'cir';
-    if (/limpeza|profilax|clareamento/.test(p)) return 'limp';
+    if (/ortod|\bortho?\b/.test(p)) return 'orto';
+    if (/retorno|retorn/.test(p)) return 'ret';
+    if (/avalia/.test(p)) return 'aval';
     return 'out';
   }
   function idDoItem(it){
