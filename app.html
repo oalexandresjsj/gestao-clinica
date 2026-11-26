@@ -1676,9 +1676,19 @@ return OPCOES[campo] || null;
     return parseFloat(s.replace(/[^\d.-]/g, ''));
   }
   function gcTokens(n) { return gcTokensNomeSrv(n); }
+  function gcUneTokens(tk, pk) {
+    const out = [];
+    for (let i = 0; i < tk.length; i++) {
+      const junto = i + 1 < tk.length ? (tk[i] + tk[i + 1]).replace(/(.)\1+/g, '$1') : '';
+      if (junto && pk.indexOf(junto) >= 0 && pk.indexOf(tk[i]) < 0) { out.push(junto); i++; }
+      else out.push(tk[i]);
+    }
+    return out;
+  }
   function gcMesmoPaciente(a, b) {
-    const x = gcTokens(a), y = gcTokens(b);
+    let x = gcTokens(a), y = gcTokens(b);
     if (!x.length || !y.length) return false;
+    x = gcUneTokens(x, y); y = gcUneTokens(y, x);
     if (x.join(' ') === y.join(' ')) return true;
     if (x[0] !== y[0]) return false;
     const curto = x.length <= y.length ? x : y, longo = x.length <= y.length ? y : x;
@@ -2092,10 +2102,11 @@ return OPCOES[campo] || null;
     for (const p of lista) {
       const pk = gcTokensNomeSrv(p.paciente);
       if (!pk.length) continue;
-      if (pk.join(' ') === tk.join(' ')) return { tipo: 'existe', paciente: p };
-      if (pk[0] !== tk[0]) continue;
-      if (tk.length === 1) { achados.push(p); continue; }
-      const curto = pk.length <= tk.length ? pk : tk, longo = pk.length <= tk.length ? tk : pk;
+      const tku = gcUneTokens(tk, pk);
+      if (pk.join(' ') === tku.join(' ')) return { tipo: 'existe', paciente: p };
+      if (pk[0] !== tku[0]) continue;
+      if (tku.length === 1) { achados.push(p); continue; }
+      const curto = pk.length <= tku.length ? pk : tku, longo = pk.length <= tku.length ? tku : pk;
       if (curto.length >= 2 && curto.every(t => longo.indexOf(t) >= 0)) achados.push(p);
     }
     if (achados.length === 1) return { tipo: 'existe', paciente: achados[0] };
