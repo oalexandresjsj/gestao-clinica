@@ -1284,6 +1284,12 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   body:is([data-aba="Pacientes"],[data-aba="Pós-operatório"],[data-aba="Laboratório"],[data-aba="Orçamentos"],[data-aba="Indicações"],[data-aba="Rotina"]) .main > .page.active { min-height: 0 !important; overflow: hidden; }
   .panel:has(> #tableWrap) { min-height: 0 !important; overflow: hidden; display: flex; flex-direction: column; padding-bottom: 6px; }
   .panel:has(> #tableWrap) > #tableWrap { flex: 1 1 0; min-height: 0 !important; max-height: none !important; overflow-y: auto; }
+
+  /* travado na tela visível: sem rolagem da página, sem faixa sobrando embaixo (só o conteúdo rola por dentro) */
+  body:is([data-aba="Pacientes"],[data-aba="Pós-operatório"],[data-aba="Laboratório"],[data-aba="Orçamentos"],[data-aba="Indicações"],[data-aba="Rotina"],[data-aba="Boletos"],[data-aba="Notas"]) .main, body.gc-ag .main { position: fixed; inset: 0; height: auto !important; min-height: 0 !important; overflow: hidden; }
+  body:is([data-aba="Boletos"],[data-aba="Notas"]) { height: 100dvh; overflow: hidden; }
+  body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active { min-height: 0 !important; overflow: hidden; }
+  body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active > .panel { min-height: 0 !important; overflow-y: auto; flex: 1 1 0; }
 }
 </style>
 <style id="gcPrefs">
