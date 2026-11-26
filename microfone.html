@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Microfone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --laranja:#F4721E; --vermelho:#C85B5B; --verde:#39856A; --texto:#2B3445; --fundo:#F7F5F1; --escuro:#1F2937; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--fundo); font-family:'Nunito','Segoe UI',system-ui,sans-serif; color:var(--texto); padding:16px; }
+  .cartao { width:100%; max-width:380px; background:#FBD3AE; border-radius:20px; padding:20px 22px 18px; box-shadow:0 14px 36px rgba(42,53,69,.16); transition:background .25s; }
+  .cartao:has(.texto.ok) { background:#CDEADB; }
+  .cartao:has(.texto.erro) { background:#F6C4BE; }
+  .rotulo { font-size:10px; font-weight:700; color:rgba(31,41,55,.65); letter-spacing:.2px; margin-bottom:6px; }
+  .titulo { font-size:20px; font-weight:800; line-height:1.2; color:var(--escuro); }
+  .linha { height:1px; background:rgba(31,41,55,.18); margin:12px 0 12px; }
+  .texto { font-size:14px; font-weight:600; line-height:1.55; min-height:84px; white-space:pre-wrap; word-break:break-word; color:rgba(31,41,55,.85); }
+  .chips { min-height:26px; margin-top:8px; }
+  .chip { display:inline-block; font-size:11px; font-weight:700; background:rgba(255,255,255,.7); padding:4px 11px; border-radius:999px; margin-right:6px; color:var(--escuro); }
+  .acoes { display:flex; gap:8px; margin-top:16px; align-items:center; }
+  button { font:inherit; cursor:pointer; border:none; border-radius:999px; padding:10px 18px; font-weight:700; font-size:13px; }
+  .sec { background:rgba(255,255,255,.75); color:var(--escuro); }
+  .pri { background:var(--escuro); color:#fff; }
+  .mic { width:54px; height:54px; padding:0; margin-left:auto; background:var(--laranja); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(244,114,30,.4); }
+  .mic svg { width:25px; height:25px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .mic.ouvindo { background:var(--vermelho); animation:pulso 1.3s infinite; }
+  @keyframes pulso { 0% { box-shadow:0 0 0 0 rgba(200,91,91,.5); } 70% { box-shadow:0 0 0 16px rgba(200,91,91,0); } 100% { box-shadow:0 0 0 0 rgba(200,91,91,0); } }
+  .ok { color:#1E6B43; font-weight:700; }
+  .erro { color:#8A2B24; font-weight:700; }
+  label { display:block; font-size:12px; margin-top:10px; font-weight:700; }
+  input { width:100%; padding:9px; border:1px solid rgba(31,41,55,.2); border-radius:10px; font:inherit; margin-top:4px; background:rgba(255,255,255,.85); }
+  .oculto { display:none; }
+</style>
+</head>
+<body>
+<div class="cartao">
+  <div class="rotulo">Microfone</div>
+  <div class="titulo" id="titulo">Microfone</div>
+  <div class="linha"></div>
+
+  <div id="telaNota">
+    <div class="texto" id="texto">Pode falar…</div>
+    <div class="chips" id="chips"></div>
+    <div class="acoes">
+      <button type="button" class="sec" id="btnCancelar" onclick="cancelar()">Cancelar</button>
+      <button type="button" class="pri" id="btnSalvar" onclick="pararESalvar()">Parar e salvar</button>
+      <button type="button" class="mic" id="btnMic" onclick="alternar()" title="Falar"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+  let rec = null, ativo = false, cancelado = false, textoMic = '', timer = null, salvando = false;
+
+    function semAcento(s) {
+    return s.replace(/[áàâãä]/g, 'a').replace(/[éèêë]/g, 'e').replace(/[íìîï]/g, 'i').replace(/[óòôõö]/g, 'o').replace(/[úùûü]/g, 'u').replace(/ç/g, 'c');
+  }
+
+  function interpretarNota(texto, baseISO) {
+    const orig = String(texto || '').replace(/\s+/g, ' ').trim();
+    const t = semAcento(orig.toLowerCase());
+    const hoje = baseISO || dataHojeISO();
+    const dow = diaDaSemana(hoje);
+    const cortes = [];
+    const reservados = [];
+    let data = '', hora = '';
+    // Trechos de duração ("por 1 hora", "1h30 de duração") não são horário: ficam na nota, mas fora da busca de data/hora
+    (() => {
+      const NUMD = '(\\d{1,2}|um|uma|dois|duas|tres|quatro)';
+      const res = [
+        new RegExp('\\b(?:por|durante|com duracao de|duracao de|duracao)\\s+' + NUMD + '\\s*(?:horas?|hs|h)(?:\\s*(?:e\\s*)?(?:\\d{2}|meia))?(?![\\da-z])', 'g'),
+        new RegExp('\\b' + NUMD + '\\s*(?:horas?|hs|h)(?:\\s*(?:e\\s*)?(?:\\d{2}|meia))?\\s+de\\s+duracao\\b', 'g'),
+        /\b(?:por|durante|duracao de|duracao)\s+\d{2,3}\s*min(?:utos?)?\b/g,
+        /\b(?:por|durante)\s+meia\s+hora\b/g
+      ];
+      res.forEach(re => { let m; while ((m = re.exec(t))) reservados.push([m.index, m.index + m[0].length]); });
+    })();
+    const livre = (i, f) => !cortes.some(c => i < c[1] && f > c[0]) && !reservados.some(c => i < c[1] && f > c[0]);
+    const achar = (re, fn) => {
+      const g = new RegExp(re.source, 'g');
+      let m;
+      while ((m = g.exec(t))) {
+        if (!livre(m.index, m.index + m[0].length)) continue;
+        const r = fn(m);
+        if (r) { cortes.push([m.index, m.index + m[0].length]); return r; }
+      }
+      return '';
+    };
+    const NUM = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7 };
+    const MES = { janeiro: 1, fevereiro: 2, marco: 3, abril: 4, maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12 };
+    const SEM = { domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6 };
+    const PRE = '(?:(?:para|pra|no|na|em|ate|ate o|ate a)\\s+)?';
+    const valida = (a, m, d) => { const x = new Date(a, m - 1, d); return x.getMonth() === m - 1 && x.getDate() === d; };
+    const anoHoje = Number(hoje.slice(0, 4));
+    const mesHoje = Number(hoje.slice(5, 7));
+    const diaHoje = Number(hoje.slice(8, 10));
+
+    const dataFns = [
+      () => achar(new RegExp('\\b' + PRE + 'depois de amanha\\b'), () => adicionarDiasISO(hoje, 2)),
+      () => achar(new RegExp('\\b' + PRE + 'amanha\\b'), () => adicionarDiasISO(hoje, 1)),
+      () => achar(new RegExp('\\b' + PRE + 'ontem\\b'), () => adicionarDiasISO(hoje, -1)),
+      () => achar(new RegExp('\\b' + PRE + 'hoje\\b'), () => hoje),
+      () => achar(new RegExp('\\b' + PRE + '(?:semana que vem|proxima semana)\\b'), () => adicionarDiasISO(hoje, ((8 - dow) % 7) || 7)),
+      () => achar(/\b(?:daqui a|em)\s+(\d{1,2}|um|uma|dois|duas|tres|quatro|cinco|seis|sete)\s+(dias?|semanas?)\b/, m => {
+        const n = NUM[m[1]] || Number(m[1]);
+        return n ? adicionarDiasISO(hoje, m[2].startsWith('semana') ? n * 7 : n) : '';
+      }),
+      () => achar(new RegExp('\\b' + PRE + '(?:dia\\s+)?(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?(?![\\d/])'), m => {
+        const d = Number(m[1]), mes = Number(m[2]);
+        let a = m[3] ? Number(m[3]) : anoHoje;
+        if (a < 100) a += 2000;
+        if (!valida(a, mes, d)) return '';
+        let iso = montarISOvalido(a, mes, d);
+        if (!m[3] && iso < hoje) iso = montarISOvalido(a + 1, mes, d);
+        return iso;
+      }),
+      () => achar(new RegExp('\\b' + PRE + '(?:dia\\s+)?(\\d{1,2})\\s+de\\s+(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\\s+de\\s+(\\d{4}))?\\b'), m => {
+        const d = Number(m[1]), mes = MES[m[2]];
+        const a = m[3] ? Number(m[3]) : anoHoje;
+        if (!valida(a, mes, d)) return '';
+        let iso = montarISOvalido(a, mes, d);
+        if (!m[3] && iso < hoje) iso = montarISOvalido(a + 1, mes, d);
+        return iso;
+      }),
+      () => achar(new RegExp('\\b' + PRE + '(?:nesta|neste|esta|este)?\\s*(domingo|segunda|terca|quarta|quinta|sexta|sabado)(?:-feira| feira)?(?:\\s+(?:que vem|proxima|proximo))?\\b'), m => adicionarDiasISO(hoje, ((SEM[m[1]] - dow + 7) % 7) || 7)),
+      () => achar(new RegExp('\\b' + PRE + 'dia\\s+(\\d{1,2})\\b(?!\\s*(?:/|:|h\\b))'), m => {
+        const d = Number(m[1]);
+        if (d < 1 || d > 31) return '';
+        let a = anoHoje, mes = mesHoje;
+        if (d < diaHoje) { mes++; if (mes > 12) { mes = 1; a++; } }
+        return valida(a, mes, d) ? montarISOvalido(a, mes, d) : '';
+      })
+    ];
+    for (const fn of dataFns) { data = fn(); if (data) break; }
+
+    const montarHora = (h, mm) => (h >= 0 && h <= 23 && mm >= 0 && mm <= 59) ? String(h).padStart(2, '0') + 'h' + String(mm).padStart(2, '0') : '';
+    const minutosDe = v => v === 'meia' || v === 'meio' ? 30 : (v ? Number(v) : 0);
+    const ajustaPeriodo = (h, fim) => {
+      const r = /^\s*(?:da|de|a)\s+(manha|tarde|noite)\b/.exec(t.slice(fim));
+      if (!r) return { h, fim };
+      if (h < 12 && r[1] !== 'manha') h += 12;
+      return { h, fim: fim + r[0].length };
+    };
+    const horaFns = [
+      [/\b(?:(?:as|ao)\s+)?(\d{1,2})\s*(?::|hs|h)\s*(\d{2})?(?![a-z0-9])/, m => [Number(m[1]), m[2] ? Number(m[2]) : 0]],
+      [/\bas\s+(\d{1,2})(?:\s+horas?)?(?:\s+e\s+(\d{2}|meia|meio))?(?![\d:/])\b/, m => [Number(m[1]), minutosDe(m[2])]],
+      [/\b(\d{1,2})\s+horas?(?:\s+e\s+(\d{2}|meia|meio))?\b/, m => [Number(m[1]), minutosDe(m[2])]],
+      [/\bmeio[- ]dia(?:\s+e\s+(meia|meio))?\b/, m => [12, minutosDe(m[1])]]
+    ];
+    for (const [re, fn] of horaFns) {
+      const g = new RegExp(re.source, 'g');
+      let m, ok = false;
+      while ((m = g.exec(t))) {
+        const ini = m.index, fim0 = m.index + m[0].length;
+        if (!livre(ini, fim0)) continue;
+        let [h, mm] = fn(m);
+        let fim = fim0;
+        if (!/meio[- ]dia/.test(m[0])) { const aj = ajustaPeriodo(h, fim0); h = aj.h; fim = aj.fim; }
+        const valor = montarHora(h, mm);
+        if (!valor) continue;
+        hora = valor; cortes.push([ini, fim]); ok = true; break;
+      }
+      if (ok) break;
+    }
+
+    let limpo = orig;
+    cortes.sort((a, b) => b[0] - a[0]).forEach(c => { limpo = limpo.slice(0, c[0]) + ' ' + limpo.slice(c[1]); });
+    let anterior;
+    do {
+      anterior = limpo;
+      limpo = limpo.replace(/^[\s,.;:\-–]*(?:alexandre|anota(?:\s+a[ií])?|anote(?:\s+a[ií])?|ei|olha)(?=[\s,.;:\-–]|$)[\s,.;:\-–]*/i, '');
+    } while (limpo !== anterior);
+    do {
+      anterior = limpo;
+      limpo = limpo.replace(/[\s,.;:\-–]*\b(?:para|pra|no|na|em|as|às|ao|dia|de|da|do|ate|até|que)\s*$/i, '');
+    } while (limpo !== anterior);
+    limpo = limpo.replace(/\s+([,.;])/g, '$1').replace(/\s+/g, ' ').replace(/^[\s,.;:\-–]+|[\s,.;:\-–]+$/g, '');
+    if (limpo) limpo = limpo.charAt(0).toUpperCase() + limpo.slice(1);
+    return { texto: limpo, data, hora };
+  }
+
+  function dataHojeISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function diaDaSemana(iso) { const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d, 12).getDay(); }
+  function adicionarDiasISO(iso, n) { const [a, m, d] = iso.split('-').map(Number); const x = new Date(a, m - 1, d, 12); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
+  function montarISOvalido(ano, mes, dia) { ano = Number(ano); mes = Number(mes); dia = Number(dia); if (!(mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31)) return ''; return ano + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0'); }
+
+  const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  function rotulo(p) {
+    const out = [];
+    if (p.data) {
+      const dif = Math.round((Date.UTC(...p.data.split('-').map((v, i) => i === 1 ? v - 1 : +v)) - Date.UTC(...dataHojeISO().split('-').map((v, i) => i === 1 ? v - 1 : +v))) / 86400000);
+      const [a, m, d] = p.data.split('-');
+      out.push(dif === 0 ? 'Hoje' : dif === 1 ? 'Amanhã' : DIAS[diaDaSemana(p.data)] + ', ' + d + '/' + m);
+    }
+    if (p.hora) out.push(Number(p.hora.slice(0, 2)) + 'h' + (p.hora.slice(3) === '00' ? '' : p.hora.slice(3)));
+    return out;
+  }
+
+  function mostrar(titulo, texto, classe) {
+    document.getElementById('titulo').textContent = titulo;
+    const t = document.getElementById('texto');
+    t.textContent = texto; t.className = 'texto' + (classe ? ' ' + classe : '');
+  }
+
+  // Várias ordens numa fala: diga "pronto" entre elas. Também separa sozinho no próximo "agendar/desmarcar/remarcar/cancelar" quando a fala começa com uma ordem.
+  const VERBOS_ORDEM = 'agendar|agende|agendo|marcar|marque|marco|encaixar|encaixe|reservar|reserve|desmarcar|desmarque|desmarco|cancelar|cancele|cancelo|remarcar|remarque|remarco|reagendar|reagende|reagendo';
+  function dividirOrdens(texto) {
+    const base = String(texto || '').replace(/\s+/g, ' ').trim();
+    if (!base) return [];
+    const ehOrdem = new RegExp('^(?:por favor[,\\s]+)?(?:' + VERBOS_ORDEM + ')\\b', 'i');
+    let partes = base.split(/[\s,.;]*\b(?:pronto|prontinho)\b[\s,.;]*/i).map(x => x.replace(/^[\s,.;]+|[\s,.;]+$/g, '')).filter(Boolean);
+    const saida = [];
+    partes.forEach(parte => {
+      if (!ehOrdem.test(parte)) { saida.push(parte); return; }
+      const re = new RegExp('[\\s,;]+(?=(?:' + VERBOS_ORDEM + ')\\b)', 'gi');
+      parte.split(re).map(x => x.trim()).filter(Boolean).forEach(x => saida.push(x));
+    });
+    return saida.slice(0, 10);
+  }
+
+  function atualizar() {
+    document.getElementById('texto').textContent = textoMic || 'Pode falar…';
+    const ordens = dividirOrdens(textoMic);
+    if (ordens.length > 1) { document.getElementById('chips').innerHTML = '<span class="chip">' + ordens.length + ' ordens</span>'; return; }
+    const p = interpretarNota(textoMic);
+    document.getElementById('chips').innerHTML = rotulo(p).map(c => '<span class="chip">' + c.replace(/</g, '&lt;') + '</span>').join('');
+  }
+
+  try { window.moveTo(Math.max(0, Math.round((screen.availWidth - window.outerWidth) / 2)), Math.max(0, Math.round((screen.availHeight - window.outerHeight) / 2))); } catch (e) { /* ok */ }
+  function iniciar() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { mostrar('Sem microfone', 'Este navegador não tem reconhecimento de voz. Use o Google Chrome.', 'erro'); return; }
+    textoMic = ''; cancelado = false; salvando = false;
+    rec = new SR(); rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = true;
+    rec.onresult = (e) => {
+      let t = '';
+      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + ' ';
+      textoMic = t.replace(/\s+/g, ' ').trim();
+      atualizar();
+      clearTimeout(timer); timer = setTimeout(() => { if (rec && ativo) { try { rec.stop(); } catch (x) {} finalizar(); } }, 1300);
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { cancelado = true; mostrar('Microfone bloqueado', 'Clique no cadeado ao lado do endereço e permita o microfone. Depois toque no botão do microfone.', 'erro'); }
+      else if (e.error === 'audio-capture') { cancelado = true; mostrar('Sem microfone', 'Não encontrei um microfone neste computador.', 'erro'); }
+    };
+    rec.onend = () => { ativo = false; document.getElementById('btnMic').classList.remove('ouvindo'); clearTimeout(timer); finalizar(); };
+    try { rec.start(); } catch (e) { return; }
+    ativo = true;
+    document.getElementById('btnMic').classList.add('ouvindo');
+    mostrar('Ouvindo…', 'Pode falar… (toque no microfone para enviar agora)');
+    document.getElementById('chips').innerHTML = '';
+    clearTimeout(timer); timer = setTimeout(() => { if (!textoMic && rec) rec.stop(); }, 6000);
+  }
+
+  function alternar() { if (ativo) { rec.stop(); } else { iniciar(); } }
+  function pararESalvar() { if (ativo) rec.stop(); else finalizar(); }
+  function cancelar() { cancelado = true; if (ativo) rec.stop(); else window.close(); setTimeout(() => window.close(), 200); }
+
+  // Este arquivo só ouve e transcreve. Quem entende e executa as ordens é o app (já logado); nenhuma senha ou código passa por aqui.
+  const ORIGEM_APP = 'https://oalexandresjsj.github.io';
+  function finalizar() {
+    if (cancelado || salvando) return;
+    const texto = textoMic.trim();
+    if (!texto) { mostrar('Não ouvi nada', 'Toque no microfone e tente de novo.', 'erro'); return; }
+    if (!(window.opener && !window.opener.closed)) { mostrar('Abra pelo app', 'Abra esta janela pelo botão do microfone dentro do app Gestão Clínica.', 'erro'); return; }
+    salvando = true;
+    try { window.opener.postMessage({ tipo: 'ordensMic', texto: texto }, ORIGEM_APP); }
+    catch (e) { salvando = false; mostrar('Não enviou', 'Não consegui falar com o app. Abra a janela de novo pelo botão do microfone.', 'erro'); return; }
+    const n = dividirOrdens(texto).length;
+    document.getElementById('titulo').textContent = n > 1 ? n + ' ordens enviadas ✓' : 'Enviado ✓';
+    const t = document.getElementById('texto'); t.className = 'texto ok'; t.textContent = texto;
+    setTimeout(() => window.close(), 900);
+  }
+
+  window.addEventListener('load', () => { iniciar(); });
+</script>
+</body>
+</html>
