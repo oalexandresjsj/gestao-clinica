@@ -127,11 +127,7 @@
   async function seguirFluxo() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { tela('telaLogin'); return; }
-    const { data: aal, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (error) { await sair(); return; }
-    if (aal.currentLevel === 'aal2') return abrirApp();
-    if (aal.nextLevel === 'aal2') return pedirCodigo();
-    return iniciarCadastro();
+    return abrirApp();
   }
 
   async function entrar() {
