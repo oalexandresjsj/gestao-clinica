@@ -1114,6 +1114,129 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
 #gcSair{position:fixed;left:10px;bottom:10px;z-index:99990;background:#354761;color:#fff;border:none;border-radius:999px;padding:6px 12px;font:700 11px 'Nunito',Arial,sans-serif;cursor:pointer;opacity:.85}
 #gcSair:hover{opacity:1}
 </style>
+<style id="gcMobile">
+@media (max-width: 700px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body { overscroll-behavior-y: none; }
+  .app { display: block; }
+
+  /* Sem barra inferior: menu pelo botão ☰ */
+  .sidebar, .sidebar.collapsed { display: none !important; }
+  /* Conteúdo */
+  .main { padding: 10px 10px calc(96px + env(safe-area-inset-bottom)); margin-left: 0 !important; }
+  .top-date, .page-subtitle, #faixaPendencias { display: none !important; }
+  .menu-toggle-btn { display: inline-flex !important; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: #fff; border: 1px solid var(--border); margin-right: 8px; font-size: 18px; }
+  .topbar-left { display: flex; align-items: center; }
+  .topbar { margin-bottom: 8px; }
+  .page-title { font-size: 20px; }
+  .rotina-abas { margin-left: auto; }
+
+  /* Botões e campos pensados para o dedo */
+  button, .bol-chip, select, .filter-select { min-height: 40px; }
+  .icon-btn { min-width: 40px; min-height: 40px; }
+  input, select, textarea, .field input, .field select, .field textarea, .search-box input, .filter-select { font-size: 16px !important; }
+  .search-box { min-width: 0; width: 100%; }
+  .toolbar-left, .toolbar-right { width: 100%; }
+  .toolbar-left > *, .toolbar-right > * { flex: 1 1 auto; }
+
+  /* Microfone e avisos acima da barra */
+  .mic-btn { right: 14px !important; bottom: calc(20px + env(safe-area-inset-bottom)) !important; width: 56px; height: 56px; }
+  .toast, .toast.ok, .toast.aviso { left: 12px !important; right: 84px !important; bottom: calc(20px + env(safe-area-inset-bottom)) !important; max-width: none !important; }
+  #gcSair { display: none !important; }
+
+  /* Agenda: um dia por vez, linhas compactas */
+  .ag-semana { padding: 0; }
+  .ag-semana .titulo { display: flex; align-items: center; justify-content: space-between; margin: 0 0 2px; font-size: 14px; }
+  .ag-semana .titulo .sub, .ag-semana .bol-chips { display: none !important; }
+  .gc-faixa { font-weight: 800; font-size: 14px; color: var(--blue-dark); }
+  .gc-seta { min-height: 32px; min-width: 40px; border: 0; background: transparent; font-size: 24px; line-height: 1; color: var(--blue-dark); padding: 0; }
+  .ag-dias { display: grid !important; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; padding: 2px 0 6px; overflow: visible; }
+  .ag-dia { min-width: 0; min-height: 52px; flex-direction: column; justify-content: center; gap: 0; padding: 4px 1px; }
+  .ag-dia .n { font-size: 9px; letter-spacing: 0; }
+  .ag-dia .d { font-size: 15px; }
+  .ag-dia .q { font-size: 9px; padding: 0 5px; }
+  #agendaGrade { margin-top: 2px; }
+  .ag-slot { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px solid #ECECE8; align-items: flex-start; }
+  .ag-slot .h { width: 38px; flex: none; font-size: 11.5px; font-weight: 700; padding-top: 6px; color: var(--muted); }
+  .ag-slot .h .ag-fora { display: none; }
+  .ag-slot .c { flex-direction: row; flex-wrap: wrap; gap: 4px; align-items: stretch; }
+  .ag-slot.gc-vazio { align-items: center; padding: 1px 0; }
+  .ag-slot.gc-vazio .h { padding-top: 0; font-weight: 600; opacity: .6; }
+  .ag-slot.gc-vazio .ag-livre { padding: 0; font-size: 0; flex: 1 1 100%; }
+  .ag-slot.gc-vazio .c { flex: 1; align-items: center; }
+  .ag-livre .bol-chip { min-height: 24px; height: 24px; padding: 0 14px; font-size: 14px; line-height: 1; color: var(--muted); background: transparent; border: 1.5px dashed #D2D4D8; border-radius: 8px; }
+  .ag-slot.gc-vazio .ag-livre .bol-chip { width: 100%; }
+  .ag-slot.gc-um .ag-livre, .ag-slot.gc-dois .ag-livre { flex: 1 1 0; padding: 0; font-size: 0; }
+  .ag-slot.gc-um .ag-livre .bol-chip { width: 100%; height: 100%; min-height: 30px; }
+  .ag-slot.gc-um .ag-item { flex: 1 1 0; min-width: 0; }
+  .ag-slot.gc-dois .ag-item { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .ag-slot.gc-dois .ag-livre { display: none; }
+  .ag-item { position: relative; display: block; padding: 5px 8px; border-radius: 8px; border: 1px solid #E4E1DA; border-left: 5px solid var(--st, #C9C3B8); background: #F7F5F0; min-height: 30px; transition: transform .18s; touch-action: pan-y; }
+  .ag-item.t-orto { background: #FCE7F1; border-color: #F2B8D2;  }
+  .ag-item.t-aval { background: #E3F0FD; border-color: #BCD8F5;  }
+  .ag-item.t-ret  { background: #E4F5EA; border-color: #BFE3CC;  }
+  .ag-item.t-cir  { background: #EFE8FB; border-color: #D5C6F2;  }
+  .ag-item.t-limp { background: #E2F5F5; border-color: #B9E2E2;  }
+  .ag-item.t-out  { background: #FBF1DF; border-color: #EBD9B5;  }
+  .ag-item.ag-item[class*=" s-"] { border-left-color: var(--st, #C9C3B8); }
+  .ag-item .nome { font-size: 12px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ag-item .nome .status { display: none; }
+  .ag-item.aberto .nome { white-space: normal; }
+  .ag-item.s-pendente { --st: #E0A52E; } .ag-item.s-avisado { --st: #4D7BC4; } .ag-item.s-confirmado { --st: #2FA56F; }
+  .ag-item.s-compareceu { --st: #14684A; } .ag-item.s-faltou { --st: #D64545; } .ag-item.s-desmarcou, .ag-item.s-cancelado { --st: #9AA0A9; }
+  .ag-slot.gc-um .ag-item .nome, .ag-item .nome { text-transform: none; }
+  .ag-item .sub, .ag-item .st-chips, .ag-item .actions { display: none; }
+  .ag-item.aberto .sub { display: block; margin-top: 6px; font-size: 12px; }
+  .ag-item.aberto .st-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .ag-item.aberto .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; width: 100%; }
+  .ag-slot .ag-item.aberto { flex: 1 1 100%; }
+  .ag-slot:has(.ag-item.aberto) .ag-livre { display: none; }
+  .ag-item.aberto .actions .icon-btn { min-width: 40px; min-height: 40px; }
+  .ag-item .actions { align-items: center; }
+  .ag-item .st-chip { min-height: 30px; font-size: 11.5px; padding: 3px 10px; }
+  .ag-item .gc-extra { display: flex; gap: 6px; flex-wrap: wrap; }
+  .gc-b { border: 1px solid #D5D8DE; background: #fff; border-radius: 10px; padding: 0 12px; min-height: 40px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--blue-dark); }
+  .ag-item::after { content: attr(data-dica); position: absolute; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 800; opacity: 0; pointer-events: none; }
+  .ag-item.gc-sw-e { box-shadow: inset 0 0 0 2px #E5484D; }
+  .ag-item.gc-sw-d { box-shadow: inset 0 0 0 2px #3B8BE0; }
+  .ag-item.gc-sw-e::after { right: 10px; color: #C23A3A; opacity: 1; }
+  .ag-item.gc-sw-d::after { left: 10px; color: #2B6FB9; opacity: 1; }
+  .ag-item.gc-sw-e .nome, .ag-item.gc-sw-d .nome { opacity: .45; }
+  #gcMenu { position: fixed; inset: 0; z-index: 300; background: rgba(27,35,48,.45); display: flex; align-items: flex-end; }
+  #gcMenu .gm-box { width: 100%; background: #fff; border-radius: 20px 20px 0 0; padding: 16px 14px calc(18px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #gcMenu .gm-t { grid-column: 1 / -1; font-weight: 800; font-size: 14px; color: var(--muted); padding: 0 4px 4px; }
+  #gcMenu button { min-height: 48px; border: 1px solid #E1E4EA; background: #F8F9FB; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 700; color: var(--blue-dark); }
+  #gcMenu .gm-sair { grid-column: 1 / -1; background: #FCECEC; border-color: #F3CFCF; color: #B93C3C; }
+  .dlg-fundo { z-index: 400; }
+
+  /* Listas e tabelas legíveis */
+  .table-wrap { border-radius: 12px; }
+  td { font-size: 13px; padding: 12px 10px; max-width: 60vw; white-space: normal; word-break: break-word; }
+  th { font-size: 10px; padding: 10px; }
+  .stats, .boletos-resumo-bar.show, .boletos-resumo-bar.cols-3.show { grid-template-columns: 1fr; }
+
+  /* Formulários: folha que sobe de baixo, quase em tela cheia */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal { max-width: none; width: 100%; max-height: 94vh; border-radius: 20px 20px 0 0; padding: 18px 16px calc(22px + env(safe-area-inset-bottom)); }
+  .modal-title { font-size: 18px; }
+  .close-modal { width: 40px; height: 40px; font-size: 20px; }
+  .modal-overlay { z-index: 200; }
+  .modal { box-sizing: border-box; overflow-x: hidden; }
+  .modal input, .modal select, .modal textarea, .modal .field, .modal .date-control, .modal .date-input-wrap { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  .modal .field input, .modal .field select, .modal .field textarea { width: 100%; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .parcela-row { grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1.2fr) 40px; gap: 6px; }
+  .parcelas-box { padding: 10px; }
+  .parcela-valor { border: 1.5px solid #DDE2EA; border-radius: 12px; padding: 12px 10px; background: #FAFBFC; width: 100%; }
+  .parcelas-header { flex-wrap: wrap; }
+  .modal-footer { position: sticky; bottom: calc(-22px - env(safe-area-inset-bottom)); background: #fff; padding: 10px 0 0; margin-top: 16px; gap: 10px; }
+  .modal-footer .btn, .modal-footer button { flex: 1; min-height: 46px; }
+  .field label { font-size: 12px; }
+  #gcBalao { align-items: flex-end; padding: 0; }
+  #gcBalao .gb { max-width: none; border-radius: 20px 20px 0 0; padding: 20px 18px calc(22px + env(safe-area-inset-bottom)); }
+  #gcBalao button { min-height: 44px; }
+}
+</style>
 </head>
 <body>
 <div id="gcLogin">
@@ -1134,7 +1257,7 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
     </form>
   </div>
 </div>
-<button id="gcSair" class="gc-oculto" type="button">Sair · versão de teste</button>
+<button id="gcSair" class="gc-oculto" type="button">Sair<span class="gcl"> · versão de teste</span></button>
 
 <div class="app">
 <aside class="sidebar" id="sidebar">
@@ -2755,7 +2878,7 @@ document.getElementById('page-dashboard').classList.add('active');
 } else {
 abaAtual = pagina;
 popupBoleto = null;
-if (pagina === 'Agenda') { agendaSemanaIni = inicioSemanaDomingoISO(dataHojeISO()); agendaDiaSel = ''; }
+if (pagina === 'Agenda') { agendaSemanaIni = inicioSemanaDomingoISO(dataHojeISO()); agendaDiaSel = (window.matchMedia('(max-width: 700px)').matches) ? dataHojeISO() : ''; }
 document.getElementById('page-module').classList.add('active');
 document.getElementById('searchInput').value = '';
 configurarFiltroStatus();
@@ -3750,7 +3873,7 @@ renderizarTabela();
 function mudarSemanaAgenda(delta) {
 if (!agendaSemanaIni) agendaSemanaIni = inicioSemanaDomingoISO(dataHojeISO());
 agendaSemanaIni = adicionarDiasISO(agendaSemanaIni, delta * 7);
-agendaDiaSel = '';
+agendaDiaSel = (window.matchMedia('(max-width: 700px)').matches) ? adicionarDiasISO(agendaDiaSel || dataHojeISO(), delta * 7) : '';
 renderizarTabela();
 }
 function irParaHojeAgenda() {
@@ -3760,7 +3883,7 @@ renderizarTabela();
 }
 function renderizarPainelAgenda() {
 const el = document.getElementById('agendaPainel');
-if (!agendaSemanaIni) { agendaSemanaIni = inicioSemanaDomingoISO(dataHojeISO()); agendaDiaSel = ''; }
+if (!agendaSemanaIni) { agendaSemanaIni = inicioSemanaDomingoISO(dataHojeISO()); agendaDiaSel = (window.matchMedia('(max-width: 700px)').matches) ? dataHojeISO() : ''; }
 const hoje = dataHojeISO();
 const lista = (dados['Agenda'] || []).filter(r => !ehDesmarcado(r));
 const fim = adicionarDiasISO(agendaSemanaIni, 6);
@@ -6931,5 +7054,171 @@ clearTimeout(window.toastTimer);
 window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && opcoes.ms) || 3200);
 }
 </script>
-</body>
+<script>/* ===== Celular: agenda compacta, menu, arrastar ===== */
+(function(){
+  var mq = window.matchMedia('(max-width: 700px)');
+  function mob(){ return mq.matches; }
+  function tipoDe(p){
+    p = String(p||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    if (/ortod|\borto\b/.test(p)) return 'orto';
+    if (/avalia|consulta|1a vez|primeira/.test(p)) return 'aval';
+    if (/retorno|manuten|revis|controle|ajuste/.test(p)) return 'ret';
+    if (/cirurg|implant|extra|enxerto/.test(p)) return 'cir';
+    if (/limpeza|profilax|clareamento/.test(p)) return 'limp';
+    return 'out';
+  }
+  function idDoItem(it){
+    var b = it.querySelector('.icon-btn.delete'); if(!b) return '';
+    var m = /confirmarExclusao\('([^']*)'/.exec(b.getAttribute('onclick')||''); return m ? m[1] : '';
+  }
+  function transformar(){
+    if (!mob()) return;
+    var raiz = document.getElementById('agendaGrade'); if(!raiz) return;
+    raiz.querySelectorAll('.ag-slot').forEach(function(sl){
+      var c = sl.querySelector('.c'); if(!c) return;
+      var itens = sl.querySelectorAll('.ag-item');
+      var liv = sl.querySelector('.ag-livre');
+      sl.classList.toggle('gc-vazio', !itens.length);
+      sl.classList.toggle('gc-um', itens.length===1);
+      sl.classList.toggle('gc-dois', itens.length>1);
+      itens.forEach(function(it){
+        var id = idDoItem(it); it.dataset.id = id;
+        var r = id && typeof registroAgendaPorId==='function' ? registroAgendaPorId(id) : null;
+        it.classList.add('t-'+tipoDe(r && r['Procedimento']));
+        it.classList.add('s-'+String(r && r['Status'] || 'Pendente').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+        if (r && !it.querySelector('.gc-extra')) {
+          var ex = document.createElement('div'); ex.className='gc-extra';
+          var tel = typeof telefoneDaAgenda==='function' ? telefoneDaAgenda(r) : '';
+          ex.innerHTML = (tel ? '<button type="button" class="gc-b" data-a="tel">Copiar telefone</button>' : '') +
+            '<button type="button" class="gc-b" data-a="remarcar">Remarcar</button>';
+          var ac = it.querySelector('.actions'); if (ac) ac.appendChild(ex);
+        }
+      });
+      if (liv) {
+        var bt = liv.querySelector('button');
+        if (itens.length && bt) { bt.textContent = '+'; bt.setAttribute('aria-label','Agendar mais um paciente neste horário'); }
+        if (!itens.length && bt) { bt.textContent = '+'; bt.setAttribute('aria-label','Agendar neste horário'); }
+        if (!itens.length) { var t = liv.firstChild; if (t && t.nodeType===3) t.textContent = 'Livre'; }
+      }
+    });
+  }
+  var orig = window.renderizarAgendaGrade;
+  if (typeof orig === 'function') {
+    window.renderizarAgendaGrade = function(){ var r = orig.apply(this, arguments); try{ transformar(); }catch(e){ console.error(e); } return r; };
+  }
+
+  var origP = window.renderizarPainelAgenda;
+  if (typeof origP === 'function') {
+    window.renderizarPainelAgenda = function(){ var r = origP.apply(this, arguments); try{
+      if (mob()) { var t = document.querySelector('#agendaPainel .titulo');
+        if (t && agendaSemanaIni) t.innerHTML = '<button type="button" class="gc-seta" onclick="mudarSemanaAgenda(-1)" aria-label="Semana anterior">‹</button><span class="gc-faixa">' + formatarData(agendaSemanaIni).slice(0,5) + ' a ' + formatarData(adicionarDiasISO(agendaSemanaIni,6)).slice(0,5) + '</span><button type="button" class="gc-seta" onclick="mudarSemanaAgenda(1)" aria-label="Próxima semana">›</button>'; }
+    }catch(e){} return r; };
+  }
+  /* toque: abrir/fechar detalhes + botões extras */
+  document.addEventListener('click', function(e){
+    if (!mob()) return;
+    var b = e.target.closest && e.target.closest('.gc-b');
+    if (b) {
+      var it = b.closest('.ag-item'); var id = it && it.dataset.id; var r = id && registroAgendaPorId(id);
+      if (!r) return;
+      if (b.dataset.a==='tel') copiarContatoAgenda(id);
+      if (b.dataset.a==='remarcar') remarcar(id);
+      return;
+    }
+    var item = e.target.closest && e.target.closest('#agendaGrade .ag-item');
+    if (!item || e.target.closest('button, a, input')) return;
+    var abrir = !item.classList.contains('aberto');
+    document.querySelectorAll('#agendaGrade .ag-item.aberto').forEach(function(x){ x.classList.remove('aberto'); });
+    if (abrir) item.classList.add('aberto');
+  });
+
+  /* remarcar */
+  function remarcar(id){
+    var r = registroAgendaPorId(id); if(!r) return;
+    var atual = converterParaISO(r['Data do atendimento']);
+    var nome = primeiroNome(r['Paciente']||'');
+    abrirDialogo('Remarcar ' + nome + '?', 'Escolha o novo dia. O horário continua o mesmo.',
+      '<input type="date" id="dlgData" value="' + atual + '" style="width:100%;margin:10px 0;font-size:16px;padding:10px;border:1.5px solid #DDE2EA;border-radius:12px">',
+      [ {rotulo:'Cancelar'},
+        {rotulo:'Remarcar', primario:true, acao:function(v){
+          if (!v || v===atual) { mostrarToast('Mesmo dia: nada mudou.'); return; }
+          var sl = slotDoAtendimento(r), oc = ocupacaoAgendaDia(v, r.ID);
+          var cheio = (oc.occ[sl]||0) >= 2 || ehLongo(r) && Object.keys(oc.occ).length && (oc.occ[sl]||0) > 0;
+          function aplicar(){
+            var alt = {'Data do atendimento': v};
+            if (igual(r['Status'],'Confirmado') || igual(r['Status'],'Avisado')) alt['Status'] = 'Pendente';
+            salvarAlteracaoRapida('Agenda', r, alt);
+            mostrarToast('Remarcado para ' + formatarData(v).slice(0,5) + '.');
+          }
+          if (cheio) perguntarSimNao('Horário cheio', 'Esse horário já está ocupado em ' + formatarData(v).slice(0,5) + '. Remarcar mesmo assim?', aplicar, null);
+          else aplicar();
+        }} ]);
+  }
+
+  /* arrastar: esquerda = excluir, direita = remarcar */
+  var T = null;
+  document.addEventListener('touchstart', function(e){
+    if (!mob()) return;
+    var it = e.target.closest && e.target.closest('#agendaGrade .ag-item');
+    if (!it || e.target.closest('button, input, a')) { T=null; return; }
+    var t = e.touches[0]; T = {it:it, x:t.clientX, y:t.clientY, dx:0, trava:null};
+  }, {passive:true});
+  document.addEventListener('touchmove', function(e){
+    if (!T) return; var t = e.touches[0]; var dx = t.clientX-T.x, dy = t.clientY-T.y;
+    if (T.trava===null) { if (Math.abs(dx)>10 && Math.abs(dx)>Math.abs(dy)*1.5) T.trava='h'; else if (Math.abs(dy)>10) { T.trava='v'; } }
+    if (T.trava!=='h') return;
+    T.dx = dx; var it=T.it;
+    it.style.transition='none'; it.style.transform='translateX('+Math.max(-140,Math.min(140,dx))+'px)';
+    it.dataset.dica = dx<-40 ? 'Excluir' : dx>40 ? 'Remarcar' : '';
+    it.classList.toggle('gc-sw-e', dx<-40); it.classList.toggle('gc-sw-d', dx>40);
+  }, {passive:true});
+  function fim(){
+    if (!T) return; var it=T.it, dx=T.dx, trava=T.trava; T=null;
+    it.style.transition='transform .18s'; it.style.transform=''; it.dataset.dica='';
+    it.classList.remove('gc-sw-e','gc-sw-d');
+    if (trava!=='h') return;
+    it.dataset.passou = '1'; setTimeout(function(){ delete it.dataset.passou; }, 350);
+    var id = it.dataset.id; if (!id) return;
+    if (dx<-90) excluirAgendamentoAgenda(id);
+    else if (dx>90) remarcar(id);
+  }
+  document.addEventListener('touchend', fim); document.addEventListener('touchcancel', fim);
+  document.addEventListener('click', function(e){ var it=e.target.closest && e.target.closest('.ag-item'); if (it && it.dataset.passou) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+  /* menu e botão voltar */
+  var ultima = 'Agenda';
+  function montarMenu(){
+    var f = document.getElementById('gcMenu'); if (f) f.remove();
+    f = document.createElement('div'); f.id='gcMenu';
+    var h = '<div class="gm-box"><div class="gm-t">Ir para</div>';
+    document.querySelectorAll('.sidebar .nav-btn').forEach(function(b, i){
+      var tx = (b.querySelector('.nav-text')||b).textContent.trim();
+      h += '<button type="button" data-i="'+i+'">'+tx+'</button>';
+    });
+    h += '<button type="button" class="gm-sair" data-sair="1">Sair</button></div>';
+    f.innerHTML = h; document.body.appendChild(f);
+    f.addEventListener('click', function(e){
+      var b = e.target.closest('button');
+      if (!b) { f.remove(); return; }
+      f.remove();
+      if (b.dataset.sair) { var s=document.getElementById('gcSair'); if (s) s.click(); return; }
+      var nb = document.querySelectorAll('.sidebar .nav-btn')[Number(b.dataset.i)]; if (nb) nb.click();
+    });
+  }
+  var mb = document.getElementById('menuToggleBtn');
+  if (mb) { mb.removeAttribute('onclick'); mb.addEventListener('click', function(e){ if (mob()) { e.stopPropagation(); montarMenu(); } else alternarMenu(); }); }
+  var abrirOrig = window.abrirPagina;
+  window.abrirPagina = function(p){
+    var r = abrirOrig.apply(this, arguments);
+    if (mob() && p !== 'Agenda' && !window.__gcVoltando && (!history.state || !history.state.gc)) { try{ history.pushState({gc:1}, ''); }catch(e){} }
+    return r;
+  };
+  window.addEventListener('popstate', function(){
+    if (!mob()) return;
+    var f = document.getElementById('gcMenu'); if (f) { f.remove(); history.pushState({gc:1}, ''); return; }
+    var abertoModal = document.querySelector('.modal-overlay.show, .modal-overlay.active');
+    window.__gcVoltando = true; try{ abrirOrig('Agenda'); }finally{ window.__gcVoltando = false; }
+  });
+})();
+</script></body>
 </html>
