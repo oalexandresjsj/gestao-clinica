@@ -1340,6 +1340,10 @@ html[data-tema="escuro"] .modal-overlay { background: rgba(0,0,0,.6); }
 #gcPerfil input#gpApelido { width: 100%; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; font: inherit; font-size: 16px; background: var(--cream); color: var(--text); }
 #gcPerfil .gp-dica { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
 #gcPerfil .gp-dica.gp-solta { margin: 14px 4px 0; }
+#gcPerfil .gp-cropw { display: flex; justify-content: center; padding: 18px 0 12px; }
+#gcPerfil #gpCv { width: 240px; height: 240px; border-radius: 50%; touch-action: none; cursor: grab; background: #000; box-shadow: 0 0 0 3px var(--blue); }
+#gcPerfil .gp-zoom { display: flex; align-items: center; gap: 12px; margin: 16px 8px 0; color: var(--muted); font-size: 20px; font-weight: 700; }
+#gcPerfil .gp-zoom input { flex: 1; accent-color: var(--blue); }
 #gcPerfil .gp-salvar { width: 100%; min-height: 48px; margin-top: 18px; border: 0; border-radius: 14px; background: var(--blue); color: #fff; font: inherit; font-size: 15px; font-weight: 800; }
 #gcPerfil .gp-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--white); border-radius: 14px; padding: 4px; }
 #gcPerfil .gp-seg button { min-height: 42px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font: inherit; font-size: 14px; font-weight: 700; }
@@ -7263,6 +7267,11 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
       h += '<div class="gp-foto">'+avatar('gp-gg')+'<div class="gp-fb"><label class="gp-btn">Trocar foto<input type="file" id="gpArq" accept="image/*" hidden></label>'+(P.foto?'<button type="button" class="gp-btn gp-sec2" id="gpTirar">Remover foto</button>':'')+'</div></div>';
       h += '<div class="gp-sec">Apelido</div><div class="gp-card"><input id="gpApelido" maxlength="40" placeholder="'+esc(primeiroNome())+'" value="'+esc(P.apelido)+'" autocomplete="off"><div class="gp-dica">É o nome que aparece para você no aplicativo.</div></div>';
       h += '<button type="button" class="gp-salvar" id="gpSalvar">Salvar</button>';
+    } else if (v==='recortar') {
+      h += topo('Ajustar foto','editar');
+      h += '<div class="gp-cropw"><canvas id="gpCv" width="240" height="240"></canvas></div><div class="gp-dica" style="text-align:center">Arraste para posicionar e use o controle para dar zoom.</div>' +
+           '<div class="gp-zoom"><span>−</span><input type="range" id="gpZ" min="1" max="4" step="0.01" value="'+CR.z+'"><span>+</span></div>' +
+           '<button type="button" class="gp-salvar" id="gpUsar">Usar esta foto</button>';
     } else if (v==='aparencia') {
       h += topo('Aparência','menu');
       h += '<div class="gp-sec">Tema</div><div class="gp-seg">'+['claro','escuro','auto'].map(function(t){ return '<button type="button" data-tema="'+t+'" class="'+(P.tema===t?'on':'')+'">'+NOMETEMA[t]+'</button>'; }).join('')+'</div>';
@@ -7270,38 +7279,65 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
       h += '<div class="gp-dica gp-solta">A cor de destaque muda o dia selecionado, o microfone e o menu. As suas escolhas ficam salvas na sua conta e seguem você em qualquer aparelho.</div>';
     }
     o.innerHTML = '<div class="gp-in">'+h+'</div>'; o.scrollTop = 0;
+    if (v==='recortar') iniciarCorte();
   }
-  function reduzir(file, cb){
+  var CR = {img:null, z:1, x:0, y:0}, rascunho = null;
+  function carregarImg(file){
     var fr = new FileReader();
-    fr.onload = function(){ var im = new Image(); im.onload = function(){
-        var s = 256, c = document.createElement('canvas'); c.width = c.height = s; var x = c.getContext('2d');
-        var l = Math.min(im.width, im.height), sx = (im.width-l)/2, sy = (im.height-l)/2; x.drawImage(im, sx, sy, l, l, 0, 0, s, s);
-        cb(c.toDataURL('image/jpeg', 0.82)); };
+    fr.onload = function(){ var im = new Image(); im.onload = function(){ CR = {img:im, z:1, x:0, y:0}; tela('recortar'); };
       im.onerror = function(){ try { mostrarToast('Não consegui ler essa imagem.'); } catch(e){} }; im.src = fr.result; };
     fr.readAsDataURL(file);
   }
+  function desenhar(cv, tam){
+    var im = CR.img, x = cv.getContext('2d'), f = tam/240;
+    var s = (240/Math.min(im.width, im.height)) * CR.z;
+    var mx = Math.max(0, (im.width*s - 240)/2), my = Math.max(0, (im.height*s - 240)/2);
+    CR.x = Math.max(-mx, Math.min(mx, CR.x)); CR.y = Math.max(-my, Math.min(my, CR.y));
+    x.fillStyle = '#000'; x.fillRect(0,0,tam,tam);
+    var w = im.width*s*f, h = im.height*s*f;
+    x.drawImage(im, tam/2 - w/2 + CR.x*f, tam/2 - h/2 + CR.y*f, w, h);
+  }
+  function iniciarCorte(){
+    var cv = document.getElementById('gpCv'), z = document.getElementById('gpZ'); if (!cv) return;
+    desenhar(cv, 240);
+    var ptrs = {}, d0 = 0, z0 = 1;
+    cv.addEventListener('pointerdown', function(e){ cv.setPointerCapture(e.pointerId); ptrs[e.pointerId] = {x:e.clientX, y:e.clientY}; var k = Object.keys(ptrs); if (k.length===2) { d0 = dist(); z0 = CR.z; } });
+    function dist(){ var k = Object.keys(ptrs); var a = ptrs[k[0]], b = ptrs[k[1]]; return Math.hypot(a.x-b.x, a.y-b.y); }
+    cv.addEventListener('pointermove', function(e){
+      var p = ptrs[e.pointerId]; if (!p) return; var k = Object.keys(ptrs);
+      if (k.length===2) { ptrs[e.pointerId] = {x:e.clientX, y:e.clientY}; if (d0) { CR.z = Math.max(1, Math.min(4, z0 * dist()/d0)); z.value = CR.z; } }
+      else { CR.x += e.clientX - p.x; CR.y += e.clientY - p.y; ptrs[e.pointerId] = {x:e.clientX, y:e.clientY}; }
+      desenhar(cv, 240);
+    });
+    function solta(e){ delete ptrs[e.pointerId]; d0 = 0; }
+    cv.addEventListener('pointerup', solta); cv.addEventListener('pointercancel', solta);
+    cv.addEventListener('wheel', function(e){ e.preventDefault(); CR.z = Math.max(1, Math.min(4, CR.z - e.deltaY/500)); z.value = CR.z; desenhar(cv, 240); }, {passive:false});
+    z.addEventListener('input', function(){ CR.z = Number(z.value); desenhar(cv, 240); });
+  }
+  function fotoPronta(){ var c = document.createElement('canvas'); c.width = c.height = 256; desenhar(c, 256); return c.toDataURL('image/jpeg', 0.85); }
   document.addEventListener('click', function(e){
     var o = document.getElementById('gcPerfil'); if (!o || !o.contains(e.target)) return;
     var b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.v) { if (b.dataset.v==='fechar') { try { history.back(); } catch(x){ fechar(); } } else tela(b.dataset.v); return; }
+    if (b.dataset.v) { if (b.dataset.v==='editar' && o.dataset.v==='recortar') { tela('editar'); var a4 = document.getElementById('gpApelido'); if (a4 && rascunho!=null) a4.value = rascunho; return; } if (b.dataset.v==='fechar') { try { history.back(); } catch(x){ fechar(); } } else tela(b.dataset.v); return; }
     if (b.dataset.ir) { tela(b.dataset.ir); return; }
     if (b.dataset.nav!=null) { var nb = document.querySelectorAll('.sidebar .nav-btn')[Number(b.dataset.nav)]; fechar(); if (nb) nb.click(); return; }
     if (b.dataset.sair) { fechar(); var s = document.getElementById('gcSair'); if (s) s.click(); return; }
     if (b.dataset.tema) { P.tema = b.dataset.tema; aplicar(); salvar(); tela('aparencia'); return; }
     if (b.dataset.cor) { P.cor = b.dataset.cor; aplicar(); salvar(); tela('aparencia'); return; }
+    if (b.id==='gpUsar') { P.foto = fotoPronta(); salvar(); atualizarBotao(); tela('editar'); if (rascunho!=null) { var a3 = document.getElementById('gpApelido'); if (a3) a3.value = rascunho; } return; }
     if (b.id==='gpTirar') { P.foto=''; salvar(); atualizarBotao(); tela('editar'); return; }
     if (b.id==='gpSalvar') { var a = document.getElementById('gpApelido'); P.apelido = (a.value||'').trim().slice(0,40); salvar(); atualizarBotao(); try { mostrarToast('Perfil salvo.'); } catch(x){} tela('menu'); return; }
   });
   document.addEventListener('change', function(e){
     if (e.target && e.target.id==='gpArq' && e.target.files && e.target.files[0]) {
-      var ap = document.getElementById('gpApelido'); var rasc = ap ? ap.value : '';
-      reduzir(e.target.files[0], function(url){ P.foto = url; salvar(); atualizarBotao(); tela('editar'); var a2 = document.getElementById('gpApelido'); if (a2 && rasc) a2.value = rasc; });
+      var ap = document.getElementById('gpApelido'); rascunho = ap ? ap.value : null;
+      carregarImg(e.target.files[0]); e.target.value = '';
     }
   });
   window.addEventListener('popstate', function(){
     var o = document.getElementById('gcPerfil'); if (!o) return;
     window.__gcPop = true; setTimeout(function(){ window.__gcPop = false; }, 50);
-    if (o.dataset.v && o.dataset.v!=='menu') { try { history.pushState({gcp:1}, ''); } catch(e){} tela('menu'); } else fechar();
+    if (o.dataset.v==='recortar') { try { history.pushState({gcp:1}, ''); } catch(e){} tela('editar'); } else if (o.dataset.v && o.dataset.v!=='menu') { try { history.pushState({gcp:1}, ''); } catch(e){} tela('menu'); } else fechar();
   });
   window.gcAbrirPerfil = abrir;
   carregar();
