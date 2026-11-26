@@ -3697,6 +3697,14 @@ const valor = r['Valor'] ? ' no valor de ' + formatarMoeda(parseNumero(r['Valor'
 const boleto = c.terceiro ? 'o boleto ' + c.meu : 'o seu boleto';
 const abertura = 'Olá, ' + c.tratamento + '! ' + saudacaoDoMomento() + ', tudo bem?';
 const fecho = ' Atenciosamente, equipe do Dr. Ítalo Neves.';
+const promD = converterParaISO(r['Promessa de pagamento']);
+if (promD && String(r['Retorno do paciente'] || '').trim() === 'Respondeu' && promD <= hoje && boletoEmAberto(r)) {
+const diaProm = formatarData(promD) + ' (' + diaDaSemanaISO(promD) + ')';
+if (promD === hoje) return abertura + ' Passando com carinho para relembrar que ' + boleto + valor + ' ficou combinado para ser pago hoje, dia ' + diaProm + '. ' +
+'Se precisar da segunda via ou de qualquer ajuda, é só me chamar por aqui. Obrigado!' + fecho;
+return abertura + ' Passando com carinho para relembrar que ' + boleto + valor + ' ficou combinado para ser pago no dia ' + diaProm + ', e ainda não identificamos o pagamento. ' +
+'Imprevistos acontecem, então, se precisar, é só nos avisar uma nova data ou pedir a segunda via por aqui. Ficamos à disposição!' + fecho;
+}
 if (!venc || venc >= hoje) {
 let quando = venc ? 'vence no dia ' + formatarData(venc) + ' (' + diaDaSemanaISO(venc) + ')' : 'está próximo do vencimento';
 if (venc === hoje) quando = 'vence hoje';
@@ -4912,7 +4920,7 @@ const dataBase = promessa || (venc && venc >= hoje ? venc : '');
 salvarAlteracaoRapida('Boletos', registro, {
 'Retorno do paciente': 'Respondeu',
 'Promessa de pagamento': promessa,
-'Próxima cobrança': ajustarParaDiaUtil(adicionarDiasISO(dataBase || hoje, dataBase ? 1 : 2))
+'Próxima cobrança': promessa ? ajustarParaDiaUtil(promessa) : ajustarParaDiaUtil(adicionarDiasISO(dataBase || hoje, dataBase ? 1 : 2))
 });
 }
 const ICONE_MSG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg>';
@@ -5381,13 +5389,13 @@ let atrasados = 0, somaAtrasados = 0;
 const [ay, am, ad] = ref.split('-').map(Number);
 const ehQuarta = new Date(ay, am - 1, ad).getDay() === 3;
 boletosNaoQuitados().forEach(r => {
-if (!ehQuarta) return; // cobrança de boletos só na quarta-feira
 if (coberto('Boletos', r.ID)) return;
 const venc = converterParaISO(r['Vencimento']);
 const prox = converterParaISO(r['Próxima cobrança']);
 const prom = converterParaISO(r['Promessa de pagamento']);
 const ult = converterParaISO(r['Último contato']);
 const atrasado = venc && venc < ref;
+if (!ehQuarta && !(prom && prom <= ref)) return; // cobrança só na quarta, exceto no dia da promessa
 if (ult === ref) return; // já tratado hoje
 if (prom && prom <= ref && !(prox && prox > ref)) {
 itens.push(tarefaBoleto(r, {
