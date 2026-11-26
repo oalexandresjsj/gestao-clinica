@@ -2485,6 +2485,7 @@ return OPCOES[campo] || null;
   }
 
   function gcBlocosDaDuracaoSrv(min) { return min > 30 ? Math.ceil(min / 30) : 1; }
+  function gcEhOrtoSrv(proc) { return /ortod|\borto\b/.test(gcSemAcentoSrv(String(proc == null ? '' : proc)).toLowerCase()); }
 
   // Reconhece "agendar / marcar ... <paciente> [procedimento]" e devolve { nome, procedimento } ou null
   function gcExtrairPedidoAgendamento(texto) {
@@ -2586,7 +2587,7 @@ return OPCOES[campo] || null;
     const dataNota = gcISO(nota['Data']) || '';
     const minNota = gcMinutosSrv(nota['Horário']);
     const hojeISO = gcHojeISO(0);
-    const todos = (gcOk(await sb.from('agenda').select('id,data_atendimento,horario,paciente,status,duracao').gte('data_atendimento', hojeISO).limit(5000), 'Agenda').data) || [];
+    const todos = (gcOk(await sb.from('agenda').select('id,data_atendimento,horario,paciente,status,duracao,procedimento').gte('data_atendimento', hojeISO).limit(5000), 'Agenda').data) || [];
     let cand = todos.map(r => ({ r: r, d: r.data_atendimento || '' }))
       .filter(x => x.d >= hojeISO && ['Cancelado', 'Desmarcou', 'Compareceu', 'Faltou'].indexOf(String(x.r.status || '').trim()) < 0 && gcMesmoPaciente(x.r.paciente, nomeFinal));
     if (!cand.length) return rev('Não achei agendamento futuro de ' + nomeFinal + ' na Agenda.');
@@ -2617,20 +2618,21 @@ return OPCOES[campo] || null;
     const slot = Math.floor(novaMin / 30) * 30;
     const dm = gcDuracaoEmMinutosSrv(alvo.r.duracao);
     const nBlocos = gcBlocosDaDuracaoSrv(dm > 30 ? dm : 0);
-    const doDia = (gcOk(await sb.from('agenda').select('id,horario,status,duracao').eq('data_atendimento', novaData).limit(2000), 'Agenda').data) || [];
+    const exclusivoR = dm > 30 || gcEhOrtoSrv(alvo.r.procedimento);
+    const doDia = (gcOk(await sb.from('agenda').select('id,horario,status,duracao,procedimento').eq('data_atendimento', novaData).limit(2000), 'Agenda').data) || [];
     const contagem = {};
     doDia.forEach(r => {
       if (r.id === alvo.r.id || gcDesmarcado(r.status)) return;
       const m = gcMinutosSrv(r.horario);
       if (m < 0) return;
       const s0 = Math.floor(m / 30) * 30, dr = gcDuracaoEmMinutosSrv(r.duracao);
-      if (dr > 30) { for (let b = 0; b < gcBlocosDaDuracaoSrv(dr); b++) contagem[s0 + b * 30] = gcVAGAS_POR_HORARIO; }
+      if (dr > 30 || gcEhOrtoSrv(r.procedimento)) { for (let b = 0; b < gcBlocosDaDuracaoSrv(dr); b++) contagem[s0 + b * 30] = gcVAGAS_POR_HORARIO; }
       else contagem[s0] = (contagem[s0] || 0) + 1;
     });
     let cabe = true;
-    for (let b = 0; b < nBlocos; b++) { const x = slot + b * 30, c = contagem[x] || 0; if (dm > 30 ? c !== 0 : c >= gcVAGAS_POR_HORARIO) cabe = false; }
+    for (let b = 0; b < nBlocos; b++) { const x = slot + b * 30, c = contagem[x] || 0; if (exclusivoR ? c !== 0 : c >= gcVAGAS_POR_HORARIO) cabe = false; }
     const depois = gcNOMES_DIA_SRV[gcDow(novaData)] + ' ' + gcDiaTxt(novaData) + ' às ' + gcHoraAmigavelSrv(novaMin);
-    if (!cabe) return rev('Não consegui remarcar ' + nomeFinal + ': ' + depois + ' não tem vaga' + (dm > 30 ? ' para ' + gcRotuloDuracaoSrv(dm) : '') + '. O agendamento continua em ' + antes + '.', 'Sem vaga');
+    if (!cabe) return rev('Não consegui remarcar ' + nomeFinal + ': ' + depois + ' não tem vaga' + (exclusivoR ? ' para ' + (dm > 30 ? gcRotuloDuracaoSrv(dm) : '30 min') : '') + '. O agendamento continua em ' + antes + '.', 'Sem vaga');
     gcOk(await sb.from('agenda').update({ data_atendimento: novaData, horario: gcHoraSrv(novaMin) }).eq('id', alvo.r.id), 'Agenda');
     const aviso = 'Remarcado: ' + nomeFinal + ' de ' + antes + ' para ' + depois + '.' + extraOutros;
     return { campos: { 'Agendamento': 'Remarcado', 'Aviso': aviso, 'Status': 'Feita', 'Agenda ID': alvo.r.id, 'Pós-op ID': '' }, agenda: null, agendaAtualizada: { id: alvo.r.id, campos: { 'Data do atendimento': novaData, 'Horário': gcHoraSrv(novaMin) } }, posop: null, mensagem: aviso };
@@ -2653,31 +2655,34 @@ return OPCOES[campo] || null;
     const slot = Math.floor(minutos / 30) * 30;
     const quando = gcNOMES_DIA_SRV[dow] + ' ' + String(d).padStart(2, '0') + '/' + String(mes).padStart(2, '0') + ' às ' + gcHoraAmigavelSrv(minutos);
 
-    const doDia = ((gcOk(await sb.from('agenda').select('horario,paciente,status,duracao').eq('data_atendimento', dataISO).limit(2000), 'Agenda').data) || []).filter(r => !gcDesmarcado(r.status));
+    const doDia = ((gcOk(await sb.from('agenda').select('horario,paciente,status,duracao,procedimento').eq('data_atendimento', dataISO).limit(2000), 'Agenda').data) || []).filter(r => !gcDesmarcado(r.status));
     const contagem = {};
     doDia.forEach(r => {
       const m = gcMinutosSrv(r.horario);
       if (m < 0) return;
       const s0 = Math.floor(m / 30) * 30, dm = gcDuracaoEmMinutosSrv(r.duracao);
-      if (dm > 30) { for (let b = 0; b < gcBlocosDaDuracaoSrv(dm); b++) contagem[s0 + b * 30] = gcVAGAS_POR_HORARIO; }
+      if (dm > 30 || gcEhOrtoSrv(r.procedimento)) { for (let b = 0; b < gcBlocosDaDuracaoSrv(dm); b++) contagem[s0 + b * 30] = gcVAGAS_POR_HORARIO; }
       else contagem[s0] = (contagem[s0] || 0) + 1;
     });
     const duracao = pedido.duracao > 30 ? pedido.duracao : 0;
+    const orto = gcEhOrtoSrv(pedido.procedimento);
+    const exclusivo = duracao > 0 || orto;
+    const rotDur = duracao ? gcRotuloDuracaoSrv(duracao) : (orto ? '30 min' : '');
     const nBlocos = gcBlocosDaDuracaoSrv(duracao);
     const blocosDe = (ini) => { const l = []; for (let b = 0; b < nBlocos; b++) l.push(ini + b * 30); return l; };
-    const cabe = (ini) => blocosDe(ini).every(x => (duracao ? (contagem[x] || 0) === 0 : (contagem[x] || 0) < gcVAGAS_POR_HORARIO));
-    const periodo = duracao ? gcHoraAmigavelSrv(slot) + ' às ' + gcHoraAmigavelSrv(slot + nBlocos * 30) : '';
+    const cabe = (ini) => blocosDe(ini).every(x => (exclusivo ? (contagem[x] || 0) === 0 : (contagem[x] || 0) < gcVAGAS_POR_HORARIO));
+    const periodo = exclusivo ? gcHoraAmigavelSrv(slot) + ' às ' + gcHoraAmigavelSrv(slot + nBlocos * 30) : '';
     const semVaga = async (motivo) => {
       const sug = Object.keys(gcSlotsDaEscala(await gcLerEscala(), dow)).map(Number).filter(cabe)
         .sort((x, y) => Math.abs(x - slot) - Math.abs(y - slot)).slice(0, 3).sort((x, y) => x - y)
-        .map(s0 => gcHoraAmigavelSrv(s0) + (!duracao && (contagem[s0] || 0) === 1 ? ' (1 vaga)' : ' (livre)'));
-      const aviso = motivo + (sug.length ? ' Horários com vaga neste dia' + (duracao ? ' para ' + gcRotuloDuracaoSrv(duracao) : '') + ': ' + sug.join(', ') + '.' : ' Não há outros horários com vaga neste dia.');
+        .map(s0 => gcHoraAmigavelSrv(s0) + (!exclusivo && (contagem[s0] || 0) === 1 ? ' (1 vaga)' : ' (livre)'));
+      const aviso = motivo + (sug.length ? ' Horários com vaga neste dia' + (exclusivo ? ' para ' + rotDur : '') + ': ' + sug.join(', ') + '.' : ' Não há outros horários com vaga neste dia.');
       return { campos: { 'Agendamento': 'Sem vaga', 'Aviso': aviso, 'Status': 'Pendente', 'Agenda ID': '' }, agenda: null, mensagem: aviso };
     };
-    if (duracao) {
-      if (!cabe(slot)) return semVaga('O período de ' + quando + ' por ' + gcRotuloDuracaoSrv(duracao) + ' (' + periodo + ') não está livre: já há paciente nele.');
+    if (exclusivo) {
+      if (!cabe(slot)) return semVaga('O período de ' + quando + ' por ' + rotDur + ' (' + periodo + ') não está livre: já há paciente nele.');
     } else if ((contagem[slot] || 0) >= gcVAGAS_POR_HORARIO) {
-      return semVaga('O horário de ' + quando + ' já está completamente preenchido' + (doDia.some(r => gcDuracaoEmMinutosSrv(r.duracao) > 30) ? '.' : ' (2 pacientes).'));
+      return semVaga('O horário de ' + quando + ' já está completamente preenchido' + (doDia.some(r => gcDuracaoEmMinutosSrv(r.duracao) > 30 || gcEhOrtoSrv(r.procedimento)) ? '.' : ' (2 pacientes).'));
     }
 
     const pac = await gcLocalizarPaciente(nome);
@@ -2694,14 +2699,14 @@ return OPCOES[campo] || null;
     if (pac.tipo === 'novo') await gcSincronizarPacientes([nomeFinal], {});
     const registroAgenda = {
       'Data do atendimento': dataISO, 'Horário': gcHoraSrv(minutos), 'Paciente': nomeFinal, 'Telefone': telefone,
-      'Procedimento': pedido.procedimento || '', 'Status': 'Pendente', 'Observações': '', 'Duração': gcRotuloDuracaoSrv(duracao)
+      'Procedimento': pedido.procedimento || '', 'Status': 'Pendente', 'Observações': '', 'Duração': rotDur
     };
     const res = await gcAdicionarVarios('Agenda', [registroAgenda]);
     registroAgenda['ID'] = res.ids[0];
     const posop = await gcMarcarRetornoPosOp(nomeFinal, dataISO);
     const total = (contagem[slot] || 0) + 1;
-    const aviso = 'Agendado: ' + nomeFinal + ', ' + quando + (duracao ? ' por ' + gcRotuloDuracaoSrv(duracao) + ' (' + periodo + '). Horário inteiro reservado para este paciente.' : '.') +
-      (duracao ? '' : total >= 2 ? ' Agora são 2 pacientes neste horário: 15 min para cada.' : ' Ainda cabe mais 1 paciente neste horário.') +
+    const aviso = 'Agendado: ' + nomeFinal + ', ' + quando + (exclusivo ? ' por ' + rotDur + ' (' + periodo + '). Horário inteiro reservado para este paciente.' : '.') +
+      (exclusivo ? '' : total >= 2 ? ' Agora são 2 pacientes neste horário: 15 min para cada.' : ' Ainda cabe mais 1 paciente neste horário.') +
       (pac.tipo === 'novo' ? ' Paciente novo cadastrado.' : '') +
       (posop ? ' Pós-operatório atualizado: retorno agendado.' : '');
     return { campos: { 'Agendamento': 'Agendado', 'Aviso': aviso, 'Status': 'Feita', 'Agenda ID': registroAgenda['ID'], 'Pós-op ID': posop ? posop.id : '' }, agenda: registroAgenda, posop: posop, mensagem: aviso, pacienteNovo: pac.tipo === 'novo' ? nomeFinal : '' };
@@ -3911,10 +3916,11 @@ function classeProcedimento(r) {
 const p = semAcento(String(r['Procedimento'] || '').toLowerCase());
 return /ortod|\borto\b/.test(p) ? ' p-orto' : '';
 }
-function ehLongo(r) { return duracaoMin(r['Duração']) > 30; }
+function ehOrtoExclusivo(r) { return classeProcedimento(r) !== '' && duracaoMin(r['Duração']) <= 30; }
+function ehLongo(r) { return duracaoMin(r['Duração']) > 30 || ehOrtoExclusivo(r); }
 function rotuloDuracaoAg(r) {
 const min = duracaoMin(r['Duração']);
-if (min <= 30) return '';
+if (min <= 30) return ehOrtoExclusivo(r) ? '30 min' : '';
 const h = Math.floor(min / 60), mm = min % 60;
 return h === 0 ? mm + ' min' : (mm === 0 ? (h === 1 ? '1 hora' : h + ' horas') : h + 'h' + String(mm).padStart(2, '0'));
 }
@@ -3941,7 +3947,7 @@ const { occ, longo } = ocupacaoAgendaDia(iso, ignorarId);
 for (let b = 0; b < blocosDuracao(dm); b++) {
 const x = s0 + b * 30;
 if (longo[x]) return 'O horário das ' + horaAmigavel(rotuloMinutos(x)) + ' já está reservado para um atendimento longo.';
-if (dm > 30 && (occ[x] || 0) > 0) return 'Já há paciente às ' + horaAmigavel(rotuloMinutos(x)) + '; um atendimento de ' + rotuloDuracaoAg(f) + ' precisa do horário inteiro livre.';
+if ((dm > 30 || ehOrtoExclusivo(f)) && (occ[x] || 0) > 0) return 'Já há paciente às ' + horaAmigavel(rotuloMinutos(x)) + '; um atendimento de ' + rotuloDuracaoAg(f) + ' precisa do horário inteiro livre.';
 }
 return '';
 }
@@ -7797,7 +7803,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   function mob(){ return mq.matches; }
   function tipoDe(p){
     p = String(p||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-    if (/ortod|\bortho?\b/.test(p)) return 'orto';
+    if (/ortod|\borto\b|\bortho?\b/.test(p)) return 'orto';
     if (/retorno|retorn/.test(p)) return 'ret';
     if (/avalia/.test(p)) return 'aval';
     return 'out';
