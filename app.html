@@ -2498,7 +2498,7 @@ return OPCOES[campo] || null;
   }
 
   function gcExtrairPedidoSemDuracao(texto) {
-    const m = /^\s*(?:por favor[,\s]+)?(agendar|agende|agendo|marcar|marque|marco|encaixar|encaixe|reservar|reserve|desmarcar|desmarque|desmarco|cancelar|cancele|cancelo|remarcar|remarque|remarco|reagendar|reagende|reagendo)\b[\s,:\-]*(.*)$/i.exec(String(texto || ''));
+    const m = /^\s*(?:por favor[,\s]+)?(agendar|agende|agenda|agendo|marcar|marque|marca|marco|encaixar|encaixe|encaixa|reservar|reserve|reserva|desmarcar|desmarque|desmarca|desmarco|cancelar|cancele|cancela|cancelo|remarcar|remarque|remarca|remarco|reagendar|reagende|reagenda|reagendo)\b[\s,:\-]*(.*)$/i.exec(String(texto || ''));
     if (!m) return null;
     const verbo = gcSemAcentoSrv(m[1].toLowerCase());
     const acao = /^(desmarc|cancel)/.test(verbo) ? 'desmarcar' : (/^(remarc|reagend)/.test(verbo) ? 'remarcar' : 'agendar');
@@ -2897,7 +2897,7 @@ return OPCOES[campo] || null;
     }
 
     function gcMontarISO(ano, mes, dia) { ano = Number(ano); mes = Number(mes); dia = Number(dia); if (!(mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31)) return ''; return ano + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0'); }
-    const gcVERBOS_ORDEM = 'agendar|agende|agendo|marcar|marque|marco|encaixar|encaixe|reservar|reserve|desmarcar|desmarque|desmarco|cancelar|cancele|cancelo|remarcar|remarque|remarco|reagendar|reagende|reagendo';
+    const gcVERBOS_ORDEM = 'agendar|agende|agenda|agendo|marcar|marque|marca|marco|encaixar|encaixe|encaixa|reservar|reserve|reserva|desmarcar|desmarque|desmarca|desmarco|cancelar|cancele|cancela|cancelo|remarcar|remarque|remarca|remarco|reagendar|reagende|reagenda|reagendo';
     function gcDividirOrdens(texto) {
       const base = String(texto || '').replace(/\s+/g, ' ').trim();
       if (!base) return [];
