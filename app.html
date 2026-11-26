@@ -1226,6 +1226,15 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   #gcMicBox button { flex: 1; min-height: 44px; border: 0; border-radius: 999px; background: rgba(255,255,255,.8); font: inherit; font-weight: 700; font-size: 13px; color: #1F2937; }
   #gcMicBox button.pri { background: #1F2937; color: #fff; }
 
+  /* Pacientes: só nome e telefone (data de nascimento e observações ficam no formulário de edição) */
+  body[data-aba="Pacientes"] #tableWrap :is(th, td):nth-child(3), body[data-aba="Pacientes"] #tableWrap :is(th, td):nth-child(4) { display: none; }
+
+  body[data-aba="Pacientes"] #tableWrap table { min-width: 0 !important; width: 100% !important; }
+  body[data-aba="Pacientes"] #tableWrap td:first-child { max-width: 50vw; font-size: 12px; }
+  body[data-aba="Pacientes"] #tableWrap .icon-btn { min-width: 34px; min-height: 34px; width: 34px; height: 34px; }
+  body[data-aba="Pacientes"] #tableWrap :is(th, td) { padding-left: 6px; padding-right: 6px; }
+  body[data-aba="Pacientes"] #tableWrap td:nth-child(2) { white-space: nowrap; font-size: 12.5px; }
+
   /* Listas e tabelas legíveis */
   .table-wrap { border-radius: 12px; }
   td { font-size: 13px; padding: 12px 10px; max-width: 60vw; white-space: normal; word-break: break-word; }
@@ -7570,6 +7579,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   var abrirOrig = window.abrirPagina;
   window.abrirPagina = function(p){
     document.body.classList.toggle('gc-ag', p === 'Agenda' && mob());
+    document.body.setAttribute('data-aba', p);
     var r = abrirOrig.apply(this, arguments);
     if (mob() && p !== 'Agenda' && !window.__gcVoltando && (!history.state || !history.state.gc)) { try{ history.pushState({gc:1}, ''); }catch(e){} }
     return r;
