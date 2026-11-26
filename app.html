@@ -1318,7 +1318,9 @@ html[data-tema="escuro"] .modal-overlay { background: rgba(0,0,0,.6); }
 #gcPerfil .gp-voltar { width: 40px; height: 40px; border: 0; border-radius: 12px; background: var(--white); color: var(--text); display: flex; align-items: center; justify-content: center; }
 #gcPerfil svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #gcPerfil .gp-card { background: var(--white); border-radius: 16px; padding: 14px; margin-top: 6px; }
-#gcPerfil .gp-perfil { display: flex; align-items: center; gap: 14px; }
+#gcPerfil .gp-perfil { display: flex; align-items: center; gap: 14px; width: 100%; border: 0; text-align: left; font: inherit; color: var(--text); cursor: pointer; }
+#gcPerfil .gp-pt { flex: 1; min-width: 0; }
+#gcPerfil .gp-edit { font-size: 12px; font-weight: 700; color: var(--blue); margin-top: 4px; }
 #gcPerfil .gp-nome { font-size: 18px; font-weight: 800; }
 #gcPerfil .gp-mail { font-size: 13px; color: var(--muted); word-break: break-all; }
 #gcPerfil .gp-sec { margin: 18px 4px 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
@@ -7251,7 +7253,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     var o = document.getElementById('gcPerfil'); if (!o) return; o.dataset.v = v; var h = '';
     if (v==='menu') {
       h += topo('Perfil','fechar');
-      h += '<div class="gp-card gp-perfil">'+avatar('gp-g')+'<div><div class="gp-nome">'+esc(nomeExibido())+'</div><div class="gp-mail">'+esc(email)+'</div></div></div>';
+      h += '<button type="button" class="gp-card gp-perfil" data-ir="editar" aria-label="Editar meu perfil">'+avatar('gp-g')+'<div class="gp-pt"><div class="gp-nome">'+esc(nomeExibido())+'</div><div class="gp-mail">'+esc(email)+'</div><div class="gp-edit">Editar perfil</div></div><span class="gp-s">'+ic.seta+'</span></button>';
       h += '<div class="gp-sec">Navegar</div><div class="gp-lista">';
       document.querySelectorAll('.sidebar .nav-btn').forEach(function(b, i){
         if (b.classList.contains('gc-perfil-btn')) return;
@@ -7259,7 +7261,6 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
         h += '<button type="button" class="gp-linha" data-nav="'+i+'"><span class="gp-i">'+(ico?ico.innerHTML:'')+'</span><span class="gp-t">'+esc(tx)+'</span><span class="gp-s">'+ic.seta+'</span></button>';
       });
       h += '</div><div class="gp-sec">Configurações</div><div class="gp-lista">' +
-        '<button type="button" class="gp-linha" data-ir="editar"><span class="gp-i">'+ic.user+'</span><span class="gp-t">Meu perfil</span><span class="gp-v">foto e apelido</span><span class="gp-s">'+ic.seta+'</span></button>' +
         '<button type="button" class="gp-linha" data-ir="aparencia"><span class="gp-i">'+ic.paleta+'</span><span class="gp-t">Aparência</span><span class="gp-v">'+NOMETEMA[P.tema]+' · '+NOMECOR[P.cor]+'</span><span class="gp-s">'+ic.seta+'</span></button></div>' +
         '<div class="gp-lista gp-ultima"><button type="button" class="gp-linha gp-sair" data-sair="1"><span class="gp-i">'+ic.sair+'</span><span class="gp-t">Sair</span></button></div>';
     } else if (v==='editar') {
@@ -7518,6 +7519,30 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     try { rec.start(); } catch(e){ fechar(); return; }
     micAtivo = true; document.getElementById('micBtn').classList.add('ouvindo'); document.getElementById('micBtn').style.zIndex = '260';
     micTimer = setTimeout(function(){ if (!micTexto && rec) { try{ rec.stop(); }catch(e){} } }, 6000);
+  };
+
+  /* WhatsApp direto (celular): abre a conversa com a mensagem pronta */
+  var copiarOrig = window.copiarMensagem;
+  function numeroWpp(t){
+    var d = String(t||'').replace(/\D/g,''); if (!d) return '';
+    if (d.indexOf('55')===0 && d.length>=12) return d;
+    if (d.length===10 || d.length===11) return '55'+d;
+    if (d.length===8 || d.length===9) return '5592'+d;
+    return d.length>=10 ? d : '';
+  }
+  window.copiarMensagem = function(chave, aba, id){
+    if (!mob() || typeof copiarOrig !== 'function') return copiarOrig.apply(this, arguments);
+    var reg = (dados[aba]||[]).find(function(x){ return String(x.ID)===String(id); });
+    var texto = (typeof mensagensCopiaveis!=='undefined' && mensagensCopiaveis[chave]) || '';
+    if (reg) { try { texto = aba==='Agenda' ? mensagemAgenda(reg) : (aba==='Orçamentos' ? mensagemLeadPadrao(reg) : mensagemBoleto(reg)); } catch(e){} }
+    var tel = reg ? numeroWpp((reg['Telefone']||'') || obterTelefonePaciente(reg['Paciente']||'')) : '';
+    if (!texto) return copiarOrig.apply(this, arguments);
+    if (!tel) { mostrarToast('Esse paciente não tem telefone cadastrado. Copiei a mensagem.'); return copiarOrig.apply(this, arguments); }
+    copiarOrig.apply(this, arguments);
+    setTimeout(function(){
+      var a = document.createElement('a'); a.href = 'https://wa.me/' + tel + '?text=' + encodeURIComponent(texto); a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+    }, 450);
   };
 
   /* menu e botão voltar */
