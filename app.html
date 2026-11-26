@@ -2481,10 +2481,11 @@ return OPCOES[campo] || null;
       if (!res) return { rev: 'Não achei esse paciente para ' + pedido.acao + '.', original: original };
       const est = res.campos['Agendamento'];
       if (['Agendado', 'Desmarcado', 'Remarcado'].indexOf(est) >= 0) return { ok: gcPrimeiraFrase(res.mensagem) };
+      const msgVoz = String(res.mensagem || '').replace(/\s*Ex\.:.*$/, '').replace(/\s*Edite a nota e toque em "Tentar de novo"\./, ' Complete no formulário.').replace(/\s*Escreva o nome completo e toque em "Tentar de novo"\./, ' Complete o nome no formulário.').trim();
       if (pedido.acao === 'agendar') {
-        return { rev: res.mensagem, original: original, abrir: { aba: 'Agenda', pre: { 'Paciente': String(pedido.nome || '').toUpperCase(), 'Data do atendimento': p.data || '', 'Horário': p.hora ? p.hora.replace('h', ':') : '', 'Procedimento': pedido.procedimento || '', 'Duração': gcRotuloDuracaoSrv(pedido.duracao) } } };
+        return { rev: msgVoz, original: original, abrir: { aba: 'Agenda', pre: { 'Paciente': String(pedido.nome || '').toUpperCase(), 'Data do atendimento': p.data || '', 'Horário': p.hora ? p.hora.replace('h', ':') : '', 'Procedimento': pedido.procedimento || '', 'Duração': gcRotuloDuracaoSrv(pedido.duracao) } } };
       }
-      return { rev: res.mensagem, original: original };
+      return { rev: msgVoz, original: original };
     }
 
     // 2) Status do paciente: "Maria confirmou / faltou / compareceu / cancelou"
