@@ -7662,12 +7662,35 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     var tel = reg ? numeroWpp((reg['Telefone']||'') || obterTelefonePaciente(reg['Paciente']||'')) : '';
     if (!texto) return copiarOrig.apply(this, arguments);
     if (!tel) { mostrarToast('Esse paciente não tem telefone cadastrado. Copiei a mensagem.'); return copiarOrig.apply(this, arguments); }
-    copiarOrig.apply(this, arguments);
+    // abre o WhatsApp direto na conversa, com a mensagem pronta (sem copiar)
+    var a = document.createElement('a'); a.href = 'https://wa.me/' + tel + '?text=' + encodeURIComponent(texto); a.target = '_blank'; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    var nome = reg ? primeiroNome(reg['Paciente'] || '') : 'o paciente';
     setTimeout(function(){
-      var a = document.createElement('a'); a.href = 'https://wa.me/' + tel + '?text=' + encodeURIComponent(texto); a.target = '_blank'; a.rel = 'noopener';
-      document.body.appendChild(a); a.click(); a.remove();
-    }, 450);
+      if (aba === 'Agenda') {
+        if (igual(reg['Status'], 'Confirmado')) return;
+        if (igual(reg['Status'], 'Avisado')) { perguntarSimNao('Voltar para pendente?', nome + ' já está como avisado. Quer voltar para pendente?', function(){ executarAlternancia('Agenda', id, 'pendenteAgenda'); }, null); return; }
+        perguntarSimNao('Mensagem enviada?', 'Você já entrou em contato com ' + nome + '?', function(){ executarAlternancia('Agenda', id, 'contatoAgendaFeito'); }, null); return;
+      }
+      if (aba === 'Orçamentos') { perguntarSimNao('Mensagem enviada?', 'Você já enviou a mensagem ao paciente? Se sim, registro o contato feito e agendo o próximo.', function(){ executarAlternancia(aba, id, 'contatoOrcamento'); }, null); return; }
+      perguntarSimNao('Mensagem enviada?', 'Você já enviou a mensagem ao paciente? Se sim, vamos registrar que ele foi avisado.', function(){ executarAlternancia(aba, id, 'contatoBoletoFeito'); }, null);
+    }, 700);
   };
+
+  /* no celular os botões de "copiar mensagem" passam a dizer WhatsApp */
+  (function(){
+    var agendado = false;
+    function rotular(){
+      agendado = false; if (!mob()) return;
+      document.querySelectorAll('[onclick*="copiarMensagem"]').forEach(function(b){
+        if (b.dataset.gcWpp) return; b.dataset.gcWpp = '1';
+        b.title = 'Enviar pelo WhatsApp'; b.setAttribute('aria-label','Enviar pelo WhatsApp');
+        if (b.classList.contains('btn')) { b.childNodes.forEach(function(n){ if (n.nodeType===3) n.textContent = n.textContent.replace(/Copiar mensagem/i,'Enviar no WhatsApp'); }); }
+      });
+    }
+    new MutationObserver(function(){ if (!agendado) { agendado = true; requestAnimationFrame(rotular); } }).observe(document.body,{childList:true,subtree:true});
+    rotular();
+  })();
 
   /* menu e botão voltar */
   var ultima = 'Agenda';
