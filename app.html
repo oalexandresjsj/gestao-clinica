@@ -2294,6 +2294,321 @@ return OPCOES[campo] || null;
     return { sucesso: true, registro: campos, agendaRemovida: removido, posop: posop };
   }
 
+      function gcSemAcentoMic(s) {
+      return s.replace(/[áàâãä]/g, 'a').replace(/[éèêë]/g, 'e').replace(/[íìîï]/g, 'i').replace(/[óòôõö]/g, 'o').replace(/[úùûü]/g, 'u').replace(/ç/g, 'c');
+    }
+
+    function gcInterpretarNota(texto, baseISO) {
+      const orig = String(texto || '').replace(/\s+/g, ' ').trim();
+      const t = gcSemAcentoMic(orig.toLowerCase());
+      const hoje = baseISO || gcHojeISO();
+      const dow = gcDow(hoje);
+      const cortes = [];
+      const reservados = [];
+      let data = '', hora = '';
+      // Trechos de duração ("por 1 hora", "1h30 de duração") não são horário: ficam na nota, mas fora da busca de data/hora
+      (() => {
+        const NUMD = '(\\d{1,2}|um|uma|dois|duas|tres|quatro)';
+        const res = [
+          new RegExp('\\b(?:por|durante|com duracao de|duracao de|duracao)\\s+' + NUMD + '\\s*(?:horas?|hs|h)(?:\\s*(?:e\\s*)?(?:\\d{2}|meia))?(?![\\da-z])', 'g'),
+          new RegExp('\\b' + NUMD + '\\s*(?:horas?|hs|h)(?:\\s*(?:e\\s*)?(?:\\d{2}|meia))?\\s+de\\s+duracao\\b', 'g'),
+          /\b(?:por|durante|duracao de|duracao)\s+\d{2,3}\s*min(?:utos?)?\b/g,
+          /\b(?:por|durante)\s+meia\s+hora\b/g
+        ];
+        res.forEach(re => { let m; while ((m = re.exec(t))) reservados.push([m.index, m.index + m[0].length]); });
+      })();
+      const livre = (i, f) => !cortes.some(c => i < c[1] && f > c[0]) && !reservados.some(c => i < c[1] && f > c[0]);
+      const achar = (re, fn) => {
+        const g = new RegExp(re.source, 'g');
+        let m;
+        while ((m = g.exec(t))) {
+          if (!livre(m.index, m.index + m[0].length)) continue;
+          const r = fn(m);
+          if (r) { cortes.push([m.index, m.index + m[0].length]); return r; }
+        }
+        return '';
+      };
+      const NUM = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7 };
+      const MES = { janeiro: 1, fevereiro: 2, marco: 3, abril: 4, maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12 };
+      const SEM = { domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6 };
+      const PRE = '(?:(?:para|pra|no|na|em|ate|ate o|ate a)\\s+)?';
+      const valida = (a, m, d) => { const x = new Date(a, m - 1, d); return x.getMonth() === m - 1 && x.getDate() === d; };
+      const anoHoje = Number(hoje.slice(0, 4));
+      const mesHoje = Number(hoje.slice(5, 7));
+      const diaHoje = Number(hoje.slice(8, 10));
+
+      const dataFns = [
+        () => achar(new RegExp('\\b' + PRE + 'depois de amanha\\b'), () => gcSomarDias(hoje, 2)),
+        () => achar(new RegExp('\\b' + PRE + 'amanha\\b'), () => gcSomarDias(hoje, 1)),
+        () => achar(new RegExp('\\b' + PRE + 'ontem\\b'), () => gcSomarDias(hoje, -1)),
+        () => achar(new RegExp('\\b' + PRE + 'hoje\\b'), () => hoje),
+        () => achar(new RegExp('\\b' + PRE + '(?:semana que vem|proxima semana)\\b'), () => gcSomarDias(hoje, ((8 - dow) % 7) || 7)),
+        () => achar(/\b(?:daqui a|em)\s+(\d{1,2}|um|uma|dois|duas|tres|quatro|cinco|seis|sete)\s+(dias?|semanas?)\b/, m => {
+          const n = NUM[m[1]] || Number(m[1]);
+          return n ? gcSomarDias(hoje, m[2].startsWith('semana') ? n * 7 : n) : '';
+        }),
+        () => achar(new RegExp('\\b' + PRE + '(?:dia\\s+)?(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?(?![\\d/])'), m => {
+          const d = Number(m[1]), mes = Number(m[2]);
+          let a = m[3] ? Number(m[3]) : anoHoje;
+          if (a < 100) a += 2000;
+          if (!valida(a, mes, d)) return '';
+          let iso = gcMontarISO(a, mes, d);
+          if (!m[3] && iso < hoje) iso = gcMontarISO(a + 1, mes, d);
+          return iso;
+        }),
+        () => achar(new RegExp('\\b' + PRE + '(?:dia\\s+)?(\\d{1,2})\\s+de\\s+(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\\s+de\\s+(\\d{4}))?\\b'), m => {
+          const d = Number(m[1]), mes = MES[m[2]];
+          const a = m[3] ? Number(m[3]) : anoHoje;
+          if (!valida(a, mes, d)) return '';
+          let iso = gcMontarISO(a, mes, d);
+          if (!m[3] && iso < hoje) iso = gcMontarISO(a + 1, mes, d);
+          return iso;
+        }),
+        () => achar(new RegExp('\\b' + PRE + '(?:nesta|neste|esta|este)?\\s*(domingo|segunda|terca|quarta|quinta|sexta|sabado)(?:-feira| feira)?(?:\\s+(?:que vem|proxima|proximo))?\\b'), m => gcSomarDias(hoje, ((SEM[m[1]] - dow + 7) % 7) || 7)),
+        () => achar(new RegExp('\\b' + PRE + 'dia\\s+(\\d{1,2})\\b(?!\\s*(?:/|:|h\\b))'), m => {
+          const d = Number(m[1]);
+          if (d < 1 || d > 31) return '';
+          let a = anoHoje, mes = mesHoje;
+          if (d < diaHoje) { mes++; if (mes > 12) { mes = 1; a++; } }
+          return valida(a, mes, d) ? gcMontarISO(a, mes, d) : '';
+        })
+      ];
+      for (const fn of dataFns) { data = fn(); if (data) break; }
+
+      const montarHora = (h, mm) => (h >= 0 && h <= 23 && mm >= 0 && mm <= 59) ? String(h).padStart(2, '0') + 'h' + String(mm).padStart(2, '0') : '';
+      const minutosDe = v => v === 'meia' || v === 'meio' ? 30 : (v ? Number(v) : 0);
+      const ajustaPeriodo = (h, fim) => {
+        const r = /^\s*(?:da|de|a)\s+(manha|tarde|noite)\b/.exec(t.slice(fim));
+        if (!r) return { h, fim };
+        if (h < 12 && r[1] !== 'manha') h += 12;
+        return { h, fim: fim + r[0].length };
+      };
+      const horaFns = [
+        [/\b(?:(?:as|ao)\s+)?(\d{1,2})\s*(?::|hs|h)\s*(\d{2})?(?![a-z0-9])/, m => [Number(m[1]), m[2] ? Number(m[2]) : 0]],
+        [/\bas\s+(\d{1,2})(?:\s+horas?)?(?:\s+e\s+(\d{2}|meia|meio))?(?![\d:/])\b/, m => [Number(m[1]), minutosDe(m[2])]],
+        [/\b(\d{1,2})\s+horas?(?:\s+e\s+(\d{2}|meia|meio))?\b/, m => [Number(m[1]), minutosDe(m[2])]],
+        [/\bmeio[- ]dia(?:\s+e\s+(meia|meio))?\b/, m => [12, minutosDe(m[1])]]
+      ];
+      for (const [re, fn] of horaFns) {
+        const g = new RegExp(re.source, 'g');
+        let m, ok = false;
+        while ((m = g.exec(t))) {
+          const ini = m.index, fim0 = m.index + m[0].length;
+          if (!livre(ini, fim0)) continue;
+          let [h, mm] = fn(m);
+          let fim = fim0;
+          if (!/meio[- ]dia/.test(m[0])) { const aj = ajustaPeriodo(h, fim0); h = aj.h; fim = aj.fim; }
+          const valor = montarHora(h, mm);
+          if (!valor) continue;
+          hora = valor; cortes.push([ini, fim]); ok = true; break;
+        }
+        if (ok) break;
+      }
+
+      let limpo = orig;
+      cortes.sort((a, b) => b[0] - a[0]).forEach(c => { limpo = limpo.slice(0, c[0]) + ' ' + limpo.slice(c[1]); });
+      let anterior;
+      do {
+        anterior = limpo;
+        limpo = limpo.replace(/^[\s,.;:\-–]*(?:alexandre|anota(?:\s+a[ií])?|anote(?:\s+a[ií])?|ei|olha)(?=[\s,.;:\-–]|$)[\s,.;:\-–]*/i, '');
+      } while (limpo !== anterior);
+      do {
+        anterior = limpo;
+        limpo = limpo.replace(/[\s,.;:\-–]*\b(?:para|pra|no|na|em|as|às|ao|dia|de|da|do|ate|até|que)\s*$/i, '');
+      } while (limpo !== anterior);
+      limpo = limpo.replace(/\s+([,.;])/g, '$1').replace(/\s+/g, ' ').replace(/^[\s,.;:\-–]+|[\s,.;:\-–]+$/g, '');
+      if (limpo) limpo = limpo.charAt(0).toUpperCase() + limpo.slice(1);
+      return { texto: limpo, data, hora };
+    }
+
+    function gcMontarISO(ano, mes, dia) { ano = Number(ano); mes = Number(mes); dia = Number(dia); if (!(mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31)) return ''; return ano + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0'); }
+    const gcVERBOS_ORDEM = 'agendar|agende|agendo|marcar|marque|marco|encaixar|encaixe|reservar|reserve|desmarcar|desmarque|desmarco|cancelar|cancele|cancelo|remarcar|remarque|remarco|reagendar|reagende|reagendo';
+    function gcDividirOrdens(texto) {
+      const base = String(texto || '').replace(/\s+/g, ' ').trim();
+      if (!base) return [];
+      const ehOrdem = new RegExp('^(?:por favor[,\\s]+)?(?:' + gcVERBOS_ORDEM + ')\\b', 'i');
+      let partes = base.split(/[\s,.;]*\b(?:pronto|prontinho)\b[\s,.;]*/i).map(x => x.replace(/^[\s,.;]+|[\s,.;]+$/g, '')).filter(Boolean);
+      const saida = [];
+      partes.forEach(parte => {
+        if (!ehOrdem.test(parte)) { saida.push(parte); return; }
+        const re = new RegExp('[\\s,;]+(?=(?:' + gcVERBOS_ORDEM + ')\\b)', 'gi');
+        parte.split(re).map(x => x.trim()).filter(Boolean).forEach(x => saida.push(x));
+      });
+      return saida.slice(0, 10);
+    }
+
+
+  // ===== Microfone: ordens por voz (a página do microfone só ouve e entrega o texto aqui) =====
+  const GC_ROTULO_STATUS = { Confirmado: 'confirmou', Faltou: 'faltou', Compareceu: 'compareceu', Cancelado: 'cancelou', Desmarcou: 'desmarcou' };
+  const GC_STATUS_PALAVRA = { confirmou: 'Confirmado', confirmada: 'Confirmado', confirmado: 'Confirmado', faltou: 'Faltou', compareceu: 'Compareceu', cancelou: 'Cancelado', desmarcou: 'Desmarcou' };
+  const GC_ORIGEM_MIC = 'https://oalexandresjsj.github.io';
+  const gcFila = [];
+  let gcFilaAtiva = false, gcModalDaFila = false;
+  const gcCap = (s) => { s = String(s || '').trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : ''; };
+  const gcPrimeiraFrase = (m) => String(m || '').split(/\.\s/)[0].replace(/\.$/, '');
+  const gcDataCurta = (iso) => { if (!iso) return ''; const [a, m, d] = iso.split('-'); return d + '/' + m; };
+
+  async function gcStatusPaciente(nome, st, dataISO) {
+    const pac = await gcLocalizarPaciente(nome);
+    if (pac.tipo === 'novo') return { rev: 'Não achei "' + nome + '" na lista de Pacientes.' };
+    if (pac.tipo === 'ambiguo') return { rev: 'Há mais de um paciente parecido com "' + nome + '": ' + pac.opcoes.join(', ') + '. Fale o nome completo.' };
+    const nomeFinal = String(pac.paciente.paciente).trim().toUpperCase();
+    const hoje = gcHojeISO(0);
+    const rows = gcOk(await window.gcSb.from('agenda').select('id,data_atendimento,horario,paciente,status').gte('data_atendimento', gcHojeISO(-45)).limit(5000), 'Agenda').data || [];
+    let cand = rows.filter(x => gcMesmoPaciente(x.paciente, nomeFinal) && !gcDesmarcado(x.status));
+    const adiante = st === 'Confirmado' || st === 'Cancelado' || st === 'Desmarcou';
+    if (dataISO) cand = cand.filter(x => x.data_atendimento === dataISO);
+    else if (adiante) cand = cand.filter(x => x.data_atendimento >= hoje && ['Compareceu', 'Faltou'].indexOf(x.status) < 0);
+    else cand = cand.filter(x => x.data_atendimento <= hoje);
+    const chave = (x) => x.data_atendimento + gcHoraSrv(Math.max(0, gcMinutosSrv(x.horario)));
+    cand.sort((a, b) => adiante || dataISO ? chave(a).localeCompare(chave(b)) : chave(b).localeCompare(chave(a)));
+    if (!cand.length) return { rev: 'Não achei um atendimento de ' + nomeFinal + (dataISO ? ' em ' + gcDataCurta(dataISO) : (adiante ? ' daqui para frente' : ' de hoje ou anterior')) + ' na Agenda.' };
+    const alvo = cand[0];
+    await gcAtualizar('Agenda', alvo.id, { Status: st });
+    return { ok: nomeFinal + ' ' + GC_ROTULO_STATUS[st] + ' (' + gcDataCurta(alvo.data_atendimento) + ' às ' + gcHoraAmigavelSrv(gcMinutosSrv(alvo.horario)) + ')' };
+  }
+
+  // Devolve { ok: 'mensagem' } se executou, ou { rev: 'motivo', abrir: {aba, pre} | null } se precisa de correção
+  async function gcExecutarOrdem(original) {
+    const p = gcInterpretarNota(original);
+    const texto = p.texto || (original.charAt(0).toUpperCase() + original.slice(1));
+    const nota = { 'Nota': texto, 'Data': p.data, 'Horário': p.hora, 'Status': 'Pendente', 'Cor': '', 'Agendamento': '', 'Aviso': '', 'Agenda ID': '', 'Pós-op ID': '' };
+
+    // 1) Agenda: agendar / desmarcar / remarcar
+    const pedido = gcExtrairPedidoAgendamento(texto);
+    if (pedido) {
+      const res = pedido.acao === 'agendar' ? await gcTentarAgendar(nota, pedido, false) : await gcTentarAlterar(nota, pedido);
+      if (!res) return { rev: 'Não achei esse paciente para ' + pedido.acao + '.', original: original };
+      const est = res.campos['Agendamento'];
+      if (['Agendado', 'Desmarcado', 'Remarcado'].indexOf(est) >= 0) return { ok: gcPrimeiraFrase(res.mensagem) };
+      if (pedido.acao === 'agendar') {
+        return { rev: res.mensagem, original: original, abrir: { aba: 'Agenda', pre: { 'Paciente': String(pedido.nome || '').toUpperCase(), 'Data do atendimento': p.data || '', 'Horário': p.hora ? p.hora.replace('h', ':') : '', 'Procedimento': pedido.procedimento || '', 'Duração': gcRotuloDuracaoSrv(pedido.duracao) } } };
+      }
+      return { rev: res.mensagem, original: original };
+    }
+
+    // 2) Status do paciente: "Maria confirmou / faltou / compareceu / cancelou"
+    const ms = /^(?:o\s+|a\s+|paciente\s+)?(.+?)\s+(confirmou|confirmada|confirmado|faltou|compareceu|cancelou|desmarcou)\b/i.exec(texto);
+    if (ms && gcTokensNomeSrv(ms[1]).length >= 1 && ms[1].trim().split(/\s+/).length <= 5 && !/[,;]/.test(ms[1])) {
+      const r = await gcStatusPaciente(ms[1].trim(), GC_STATUS_PALAVRA[ms[2].toLowerCase()], p.data);
+      return r.ok ? r : { rev: r.rev, original: original };
+    }
+
+    // 3) Pós-operatório: "Maria, cirurgia de implante, dia 27"
+    const mp = /^(?:p[óo]s[-\s]?operat[óo]rio\s+(?:d[aeo]s?\s+)?)?(.*?)[,\s]*\bcirurgia\b\s*(?:d[aeo]s?\s+)?(.*)$/i.exec(texto);
+    if (mp) {
+      const nome = mp[1].replace(/[,\s]+$/, '').trim();
+      const proc = gcCap(mp[2].replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, ''));
+      const pre = { 'Paciente': nome.toUpperCase(), 'Procedimento': proc, 'Data da cirurgia': p.data || '' };
+      const abrir = { aba: 'Pós-operatório', pre: pre };
+      if (!nome) return { rev: 'Não entendi o nome do paciente do pós-operatório.', original: original, abrir: abrir };
+      if (!p.data) return { rev: 'Faltou a data da cirurgia de ' + nome.toUpperCase() + '.', original: original, abrir: abrir };
+      const pac = await gcLocalizarPaciente(nome);
+      if (pac.tipo === 'ambiguo') return { rev: 'Há mais de um paciente parecido com "' + nome + '": ' + pac.opcoes.join(', ') + '. Complete o nome.', original: original, abrir: abrir };
+      if (pac.tipo === 'novo') return { rev: '"' + nome.toUpperCase() + '" não está na lista de Pacientes. Confira o nome.', original: original, abrir: abrir };
+      pre['Paciente'] = String(pac.paciente.paciente).trim().toUpperCase();
+      const res = await gcAdicionarVarios('Pós-operatório', [{ 'Paciente': pre['Paciente'], 'Procedimento': proc, 'Data da cirurgia': p.data }]);
+      const lin = gcOk(await window.gcSb.from('pos_operatorio').select('data_1_contato,data_2_contato').eq('id', res.ids[0]).maybeSingle(), 'Pós-operatório').data || {};
+      return { ok: 'Pós-operatório: ' + pre['Paciente'] + (proc ? ', ' + proc.toLowerCase() : '') + ', cirurgia ' + gcDataCurta(p.data) + '. Contatos: ' + gcDataCurta(lin.data_1_contato) + ' e ' + gcDataCurta(lin.data_2_contato) };
+    }
+
+    // 4) Qualquer outra fala vira nota
+    nota['ID'] = crypto.randomUUID();
+    gcOk(await window.gcSb.from('notas').insert(gcParaBanco('Notas', nota)), 'Notas');
+    return { ok: 'Anotado: ' + texto.slice(0, 60) + (texto.length > 60 ? '…' : '') };
+  }
+
+  // ---- balão de correção (para o que não foi entendido) ----
+  function gcEstiloBalao() {
+    if (document.getElementById('gcBalaoCss')) return;
+    const st = document.createElement('style'); st.id = 'gcBalaoCss';
+    st.textContent = '#gcBalao{position:fixed;inset:0;z-index:100001;display:none;align-items:center;justify-content:center;background:rgba(31,41,55,.38);padding:16px;font-family:"Nunito","Segoe UI",system-ui,sans-serif}'
+      + '#gcBalao.show{display:flex}#gcBalao .gb{width:100%;max-width:440px;background:#FBD3AE;border-radius:20px;padding:20px 22px;box-shadow:0 14px 40px rgba(42,53,69,.25);color:#1F2937}'
+      + '#gcBalao .gb small{font-size:10px;font-weight:700;letter-spacing:.2px;color:rgba(31,41,55,.65)}#gcBalao h3{margin:4px 0 8px;font-size:18px;font-weight:800}'
+      + '#gcBalao p{margin:0 0 10px;font-size:13.5px;font-weight:600;line-height:1.5}#gcBalao textarea{width:100%;min-height:62px;border:none;border-radius:12px;padding:10px 12px;font:600 14px "Nunito",sans-serif;background:rgba(255,255,255,.8);resize:vertical;color:#1F2937}'
+      + '#gcBalao .gbx{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}#gcBalao button{font:700 13px "Nunito",sans-serif;border:none;border-radius:999px;padding:10px 16px;cursor:pointer}'
+      + '#gcBalao .p{background:#1F2937;color:#fff}#gcBalao .s{background:rgba(255,255,255,.75);color:#1F2937}';
+    document.head.appendChild(st);
+    const d = document.createElement('div'); d.id = 'gcBalao'; document.body.appendChild(d);
+  }
+  function gcBalaoRevisao(item, posicao, total) {
+    gcEstiloBalao();
+    const el = document.getElementById('gcBalao');
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    el.innerHTML = '<div class="gb"><small>Não entendi bem' + (total > 1 ? ' · ' + posicao + ' de ' + total : '') + '</small><h3>Corrija esta ordem</h3>'
+      + '<p>' + esc(item.rev) + '</p><textarea id="gcBalaoTexto">' + esc(item.original) + '</textarea>'
+      + '<div class="gbx"><button class="p" id="gcBTentar">Tentar de novo</button><button class="s" id="gcBNota">Salvar como nota</button><button class="s" id="gcBDescartar">Descartar</button></div></div>';
+    el.classList.add('show');
+    const fechar = () => { el.classList.remove('show'); el.innerHTML = ''; gcFilaAtiva = false; setTimeout(gcProximaRevisao, 250); };
+    document.getElementById('gcBDescartar').onclick = fechar;
+    document.getElementById('gcBNota').onclick = async () => {
+      try {
+        const t = document.getElementById('gcBalaoTexto').value.trim();
+        if (t) { const q = gcInterpretarNota(t); await gcCriarNotaSimples(q.texto || t, q.data, q.hora); mostrarToast('Salvo como nota.'); carregarDados(); }
+      } catch (e) { mostrarToast('Não consegui salvar a nota.'); }
+      fechar();
+    };
+    document.getElementById('gcBTentar').onclick = async () => {
+      const t = document.getElementById('gcBalaoTexto').value.trim();
+      if (!t) return;
+      try {
+        const r = await gcExecutarOrdem(t);
+        if (r.ok) { mostrarToast(r.ok, { tipo: 'ok', ms: 5000 }); carregarDados(); fechar(); return; }
+        if (r.abrir) { el.classList.remove('show'); el.innerHTML = ''; gcAbrirFormulario(r); return; }
+        item.rev = r.rev; item.original = t; gcBalaoRevisao(item, posicao, total);
+      } catch (e) { mostrarToast('Não consegui processar agora. Tente de novo.'); }
+    };
+  }
+  async function gcCriarNotaSimples(texto, data, hora) {
+    const nota = { 'ID': crypto.randomUUID(), 'Nota': texto.slice(0, 500), 'Data': data || '', 'Horário': hora || '', 'Status': 'Pendente', 'Cor': '', 'Agendamento': '', 'Aviso': '', 'Agenda ID': '', 'Pós-op ID': '' };
+    gcOk(await window.gcSb.from('notas').insert(gcParaBanco('Notas', nota)), 'Notas');
+  }
+  function gcAbrirFormulario(item) {
+    gcModalDaFila = true;
+    abrirPagina(item.abrir.aba);
+    abrirModal(null, item.abrir.pre);
+    mostrarToast(item.rev, { tipo: 'aviso', ms: 9000 });
+  }
+  function gcProximaRevisao() {
+    if (gcFilaAtiva) return;
+    const item = gcFila.shift();
+    if (!item) return;
+    gcFilaAtiva = true;
+    const total = item._total || 1, pos = item._pos || 1;
+    if (item.abrir) gcAbrirFormulario(item); else gcBalaoRevisao(item, pos, total);
+  }
+  // quando o formulário aberto pela fila é fechado (salvando ou não), abre a próxima correção
+  const gcFecharModalOriginal = fecharModal;
+  fecharModal = function () {
+    gcFecharModalOriginal.apply(this, arguments);
+    if (gcModalDaFila) { gcModalDaFila = false; gcFilaAtiva = false; setTimeout(gcProximaRevisao, 350); }
+  };
+
+  async function gcProcessarFala(textoBruto) {
+    const ordens = gcDividirOrdens(textoBruto);
+    if (!ordens.length) return;
+    const ok = [], rev = [];
+    for (const o of ordens) {
+      try {
+        const r = await gcExecutarOrdem(o);
+        if (r.ok) ok.push(r.ok); else rev.push(r);
+      } catch (e) { console.error(e); rev.push({ rev: 'Deu erro ao executar: ' + (e && e.message || e), original: o }); }
+    }
+    if (ok.length) mostrarToast(ok.join('\n'), { tipo: 'ok', ms: 5500 + 1500 * (ok.length - 1) });
+    await new Promise(res => carregarDados(res));
+    rev.forEach((r, i) => { r._pos = i + 1; r._total = rev.length; gcFila.push(r); });
+    gcProximaRevisao();
+  }
+
+  window.addEventListener('message', (e) => {
+    try {
+      if (e.origin !== GC_ORIGEM_MIC || !janelaMic || e.source !== janelaMic) return;
+      const d = e.data;
+      if (!d || d.tipo !== 'ordensMic' || typeof d.texto !== 'string') return;
+      gcProcessarFala(d.texto.slice(0, 2000));
+    } catch (err) { /* ignora */ }
+  });
+
   let gcAvisouPendente = false;
   async function gcChamar(metodo, args) {
     await window.gcSessao;
@@ -6368,7 +6683,7 @@ function carregarConfigMic() {
 if (cfgMic) return;
 try { chamarServidor('obterConfigMicrofone', [], (c) => { cfgMic = c || null; }, () => {}); } catch (e) { /* Code.gs antigo: abre a página sem configurar */ }
 }
-const URL_PAGINA_MIC = 'https://oalexandresjsj.github.io/microfone-clinica/';
+const URL_PAGINA_MIC = 'https://oalexandresjsj.github.io/gestao-clinica/microfone.html';
 function alternarMic() {
 abrirPaginaMic(URL_PAGINA_MIC);
 }
