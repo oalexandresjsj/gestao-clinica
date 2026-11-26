@@ -1675,10 +1675,7 @@ return OPCOES[campo] || null;
     if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, ''));
     return parseFloat(s.replace(/[^\d.-]/g, ''));
   }
-  function gcTokens(n) {
-    return String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z\s]/g, ' ')
-      .split(/\s+/).filter(t => t && ['DE', 'DA', 'DO', 'DOS', 'DAS', 'E'].indexOf(t) < 0);
-  }
+  function gcTokens(n) { return gcTokensNomeSrv(n); }
   function gcMesmoPaciente(a, b) {
     const x = gcTokens(a), y = gcTokens(b);
     if (!x.length || !y.length) return false;
@@ -1941,9 +1938,17 @@ return OPCOES[campo] || null;
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   }
 
+  // Chave pelo SOM do nome: o reconhecimento de voz erra a grafia (C/S/SS/Ç, Z/S, PH/F, Y/I, H mudo...)
+  function gcFonetica(t) {
+    t = String(t || '').toUpperCase();
+    t = t.replace(/SC(?=[EI])/g, 'S').replace(/C(?=[EI])/g, 'S').replace(/Ç/g, 'S').replace(/CH/g, 'X').replace(/PH/g, 'F');
+    t = t.replace(/QU(?=[EI])/g, 'K').replace(/[CQ]/g, 'K').replace(/Z/g, 'S').replace(/Y/g, 'I').replace(/W/g, 'V');
+    t = t.replace(/([LN])H/g, '$1#').replace(/H/g, '').replace(/#/g, 'H');
+    return t.replace(/(.)\1+/g, '$1');
+  }
   function gcTokensNomeSrv(n) {
-    return String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z\s]/g, ' ')
-      .split(/\s+/).filter(t => t && ['DE', 'DA', 'DO', 'DOS', 'DAS', 'E'].indexOf(t) < 0);
+    return String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z\s]/g, ' ')
+      .split(/\s+/).filter(t => t && ['DE', 'DA', 'DO', 'DOS', 'DAS', 'E'].indexOf(t) < 0).map(gcFonetica);
   }
 
   function gcMinutosSrv(hhmm) {
