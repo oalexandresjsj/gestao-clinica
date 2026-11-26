@@ -7536,11 +7536,11 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
 /* Aviso de versão nova: confere (leve, só o cabeçalho do arquivo) ao voltar para o app e a cada 3 min */
 (function(){
   if (!window.fetch || location.protocol === 'file:') return;
-  var base = null, mostrado = false;
+  var mostrado = false, ultimo = 0, base = Date.parse(document.lastModified) || 0;
   function assinatura(){
     return fetch(location.pathname, { method: 'HEAD', cache: 'no-store' })
-      .then(function(r){ return r.ok ? (r.headers.get('last-modified') || null) : null; })
-      .catch(function(){ return null; });
+      .then(function(r){ var lm = r.ok && r.headers.get('last-modified'); return lm ? (Date.parse(lm) || 0) : 0; })
+      .catch(function(){ return 0; });
   }
   function aviso(){
     if (mostrado || document.getElementById('gcNova')) return; mostrado = true;
@@ -7548,15 +7548,18 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     d.innerHTML = '<span>Nova versão disponível</span><button type="button" data-a="1">Atualizar</button><button type="button" data-f="1" aria-label="Fechar">✕</button>';
     d.addEventListener('click', function(e){
       var b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.a) { fetch(location.pathname, { cache: 'reload' }).catch(function(){}).then(function(){ location.reload(); }); } else { d.remove(); setTimeout(function(){ mostrado = false; }, 600000); }
+      if (b.dataset.a) { fetch(location.pathname, { cache: 'reload' }).catch(function(){}).then(function(){ location.reload(); }); }
+      else { d.remove(); setTimeout(function(){ mostrado = false; }, 600000); }
     });
     document.body.appendChild(d);
   }
   function checar(){
-    if (mostrado || base === null) return;
-    assinatura().then(function(s){ if (s && s !== base) aviso(); });
+    if (mostrado || !base) return;
+    var t = Date.now(); if (t - ultimo < 15000) return; ultimo = t;
+    assinatura().then(function(s){ if (s && s > base + 1000) aviso(); });
   }
-  assinatura().then(function(s){ base = s; });
+  window.gcChecarVersao = checar;
+  checar();
   setInterval(checar, 180000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) checar(); });
   window.addEventListener('focus', checar);
@@ -7833,6 +7836,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   window.abrirPagina = function(p){
     document.body.classList.toggle('gc-ag', p === 'Agenda' && mob());
     document.body.setAttribute('data-aba', p);
+    if (window.gcChecarVersao) window.gcChecarVersao();
     var r = abrirOrig.apply(this, arguments);
     if (mob() && p !== 'Agenda' && !window.__gcVoltando && (!history.state || !history.state.gc)) { try{ history.pushState({gc:1}, ''); }catch(e){} }
     return r;
