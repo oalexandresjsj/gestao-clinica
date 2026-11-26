@@ -1123,7 +1123,10 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   /* Sem barra inferior: menu pelo botão ☰ */
   .sidebar, .sidebar.collapsed { display: none !important; }
   /* Conteúdo */
-  .main { padding: 10px 10px calc(96px + env(safe-area-inset-bottom)); margin-left: 0 !important; }
+  .main { padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); margin-left: 0 !important; min-height: 100vh; min-height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; }
+  .main > .page.active { flex: 1; display: flex; flex-direction: column; }
+  .main > .page.active > .panel { flex: 1; }
+  #agendaGrade { padding-bottom: 72px; }
   .top-date, .page-subtitle, #faixaPendencias { display: none !important; }
   .menu-toggle-btn { display: inline-flex !important; align-items: center; justify-content: center; width: 30px; height: 30px; min-height: 0; border-radius: 9px; background: #fff; border: 1px solid var(--border); margin-right: 8px; font-size: 14px; padding: 0; }
   .topbar-left { display: flex; align-items: center; }
