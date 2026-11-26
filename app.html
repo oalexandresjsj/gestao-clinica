@@ -1206,6 +1206,12 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   #gcMenu button { min-height: 48px; border: 1px solid #E1E4EA; background: #F8F9FB; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 700; color: var(--blue-dark); }
   #gcMenu .gm-sair { grid-column: 1 / -1; background: #FCECEC; border-color: #F3CFCF; color: #B93C3C; }
   .dlg-fundo { z-index: 400; }
+  #gcMicBox { position: fixed; left: 0; right: 0; bottom: 0; z-index: 250; background: #FBD3AE; border-radius: 20px 20px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 30px rgba(27,35,48,.25); }
+  #gcMicBox .mb-t { font-weight: 800; font-size: 16px; color: #1F2937; }
+  #gcMicBox .mb-x { margin: 8px 0 12px; min-height: 48px; font-size: 15px; font-weight: 600; line-height: 1.45; color: rgba(31,41,55,.85); }
+  #gcMicBox .mb-a { display: flex; gap: 8px; padding-right: 72px; }
+  #gcMicBox button { flex: 1; min-height: 44px; border: 0; border-radius: 999px; background: rgba(255,255,255,.8); font: inherit; font-weight: 700; font-size: 13px; color: #1F2937; }
+  #gcMicBox button.pri { background: #1F2937; color: #fff; }
 
   /* Listas e tabelas legíveis */
   .table-wrap { border-radius: 12px; }
@@ -7194,6 +7200,41 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)*1.5) return;
     mudarSemanaAgenda(dx < 0 ? 1 : -1);
   });
+
+  /* microfone direto na tela (sem abrir outra aba) */
+  var micOrig = window.alternarMic, rec = null, micAtivo = false, micTexto = '', micTimer = null, micCancel = false;
+  function SRc(){ return window.SpeechRecognition || window.webkitSpeechRecognition; }
+  function caixa(){ var b = document.getElementById('gcMicBox'); if (!b) { b = document.createElement('div'); b.id='gcMicBox';
+      b.innerHTML = '<div class="mb-t" id="mbT">Ouvindo…</div><div class="mb-x" id="mbX">Pode falar…</div><div class="mb-a"><button type="button" id="mbC">Cancelar</button><button type="button" class="pri" id="mbE">Enviar agora</button></div>';
+      document.body.appendChild(b);
+      b.querySelector('#mbC').onclick = function(){ micCancel = true; if (micAtivo && rec) { try{ rec.stop(); }catch(e){} } fechar(); };
+      b.querySelector('#mbE').onclick = function(){ if (micAtivo && rec) { try{ rec.stop(); }catch(e){} } else enviar(); };
+    } return b; }
+  function fechar(){ var b = document.getElementById('gcMicBox'); if (b) b.remove(); var m = document.getElementById('micBtn'); if (m) { m.classList.remove('ouvindo'); m.style.zIndex = ''; } micAtivo = false; clearTimeout(micTimer); }
+  var enviado = false;
+  function enviar(){
+    if (micCancel || enviado) return; var t = micTexto.trim();
+    if (!t) { var x = document.getElementById('mbX'); if (x) x.textContent = 'Não ouvi nada. Toque no microfone e tente de novo.'; setTimeout(fechar, 1800); return; }
+    enviado = true; fechar();
+    try { window.gcProcessarFala(t.slice(0,2000)); } catch(e){ console.error(e); mostrarToast('Não consegui processar o que você falou.'); }
+  }
+  window.alternarMic = function(){
+    if (!mob()) return micOrig.apply(this, arguments);
+    var SR = SRc(); if (!SR || typeof window.gcProcessarFala !== 'function') return micOrig.apply(this, arguments);
+    if (micAtivo && rec) { try{ rec.stop(); }catch(e){} return; }
+    micTexto=''; micCancel=false; enviado=false;
+    var b = caixa(); b.querySelector('#mbT').textContent='Ouvindo…'; b.querySelector('#mbX').textContent='Pode falar…';
+    rec = new SR(); rec.lang='pt-BR'; rec.continuous=true; rec.interimResults=true;
+    rec.onresult = function(e){ var t=''; for (var i=0;i<e.results.length;i++) t += e.results[i][0].transcript+' ';
+      micTexto = t.replace(/\s+/g,' ').trim(); var x=document.getElementById('mbX'); if (x) x.textContent = micTexto;
+      clearTimeout(micTimer); micTimer = setTimeout(function(){ try{ rec.stop(); }catch(e){} }, 1300); };
+    rec.onerror = function(e){ if (e.error==='not-allowed' || e.error==='service-not-allowed') { micCancel=true; var x=document.getElementById('mbX'); if (x) x.textContent='Microfone bloqueado. Permita o microfone para este site nas configurações do navegador.'; var t=document.getElementById('mbT'); if (t) t.textContent='Sem permissão'; setTimeout(fechar, 4000); }
+      else if (e.error==='audio-capture') { micCancel=true; var x2=document.getElementById('mbX'); if (x2) x2.textContent='Não encontrei um microfone.'; setTimeout(fechar, 3000); } };
+    rec.onend = function(){ micAtivo=false; var m=document.getElementById('micBtn'); if (m) m.classList.remove('ouvindo'); clearTimeout(micTimer); if (!micCancel) enviar(); };
+    try { rec.start(); } catch(e){ fechar(); return; }
+    micAtivo = true; document.getElementById('micBtn').classList.add('ouvindo'); document.getElementById('micBtn').style.zIndex = '260';
+    micTimer = setTimeout(function(){ if (!micTexto && rec) { try{ rec.stop(); }catch(e){} } }, 6000);
+  };
 
   /* menu e botão voltar */
   var ultima = 'Agenda';
