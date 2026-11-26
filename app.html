@@ -1107,6 +1107,7 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
 #gcLogin button{font:inherit;cursor:pointer;border:none;border-radius:12px;padding:12px 18px;font-weight:800;font-size:14px}
 #gcLogin .gc-pri{width:100%;background:#F4721E;color:#fff;margin-top:20px}
 #gcLogin .gc-pri:disabled{opacity:.6;cursor:wait}
+#gcLogin .gc-link{display:block;width:100%;background:none;color:#4D6080;font-weight:700;font-size:12.5px;margin-top:10px;padding:8px 0}
 #gcLogin .gc-ver{background:none;color:#89909B;font-weight:700;font-size:12px;padding:6px 0 0}
 #gcLogin .gc-erro{color:#C85B5B;font-size:12.5px;font-weight:700;margin-top:12px;min-height:16px}
 #gcLogin .gc-det{font-size:10.5px;color:#89909B;margin-top:4px;word-break:break-word}
@@ -1471,6 +1472,24 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
 #gcLabs .gl-rod{display:flex;gap:8px;justify-content:flex-end}
 @media (max-width:700px){#gcLabs .gl-lin{flex-wrap:wrap}#gcLabs .gl-n{flex:1 1 100%}#gcLabs .gl-t{flex:1}}
 @media print{#gcLabs{display:none!important}}
+.brand-icon{position:relative;overflow:visible}
+#gcPonto{display:none;position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#E5484D;color:#fff;font:800 10px/1 'Nunito',Arial,sans-serif;align-items:center;justify-content:center;border:2px solid #4D6080;box-sizing:content-box;pointer-events:none}
+#gcPed{position:fixed;inset:0;z-index:330;background:rgba(15,20,35,.5);display:flex;align-items:center;justify-content:center;padding:14px}
+#gcPed .gp2-box{background:var(--white,#fff);color:var(--text,#2b3a55);border-radius:18px;width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#gcPed .gp2-top{display:flex;align-items:center;justify-content:space-between;font-size:17px;margin-bottom:6px}
+#gcPed .gp2-x{border:0;background:transparent;font-size:18px;color:var(--muted,#7a8599);padding:6px 8px;cursor:pointer}
+#gcPed .gp2-dica{font-size:12px;color:var(--muted,#7a8599);margin-bottom:10px;line-height:1.4}
+#gcPed .gp2-lista{overflow-y:auto;flex:1}
+#gcPed .gp2-vazio{text-align:center;color:var(--muted,#7a8599);font-size:14px;padding:26px 0}
+#gcPed .gp2-c{background:var(--cream,#f6f4f0);border-radius:14px;padding:12px;margin-bottom:10px}
+#gcPed .gp2-n{font-weight:800;font-size:16px}
+#gcPed .gp2-m{font-size:12px;color:var(--muted,#7a8599);word-break:break-all;margin-bottom:8px}
+#gcPed .gp2-g{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+#gcPed .gp2-g label{display:flex;flex-direction:column;gap:2px;font-size:11px;font-weight:700;color:var(--muted,#7a8599)}
+#gcPed .gp2-g select{border:1.5px solid var(--border,#dfe3ea);border-radius:10px;padding:8px;font:inherit;font-size:14px;background:var(--white,#fff);color:var(--text,#2b3a55)}
+#gcPed .gp2-b{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,body.gc-ro #tableWrap .icon-btn,body.gc-ro #tableWrap .btn-danger{display:none!important}
+@media print{#gcPed,#gcPonto{display:none!important}}
 </style><link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4D6080">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -1496,10 +1515,31 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
       <div class="gc-erro" id="gcErro"></div>
       <div class="gc-det" id="gcDet"></div>
       <button class="gc-pri" id="gcEntrar" type="submit">Entrar</button>
+      <button class="gc-link" id="gcIrCad" type="button">Não tenho conta · pedir acesso</button>
     </form>
+    <form id="gcFormCad" class="gc-oculto" autocomplete="off" onsubmit="return false">
+      <h1>Pedir acesso</h1>
+      <p>Preencha seus dados. Você só entra depois que o administrador liberar.</p>
+      <label for="gcCadNome">Nome</label>
+      <input id="gcCadNome" type="text" autocomplete="name" maxlength="80" required>
+      <label for="gcCadEmail">E-mail</label>
+      <input id="gcCadEmail" type="email" autocomplete="email" required>
+      <label for="gcCadSenha">Senha (mínimo 8 caracteres)</label>
+      <input id="gcCadSenha" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="gcCadSenha2">Repita a senha</label>
+      <input id="gcCadSenha2" type="password" autocomplete="new-password" minlength="8" required>
+      <div class="gc-erro" id="gcCadErro"></div>
+      <button class="gc-pri" id="gcCadEnviar" type="submit">Enviar pedido</button>
+      <button class="gc-link" id="gcVoltarLogin" type="button">Já tenho conta · entrar</button>
+    </form>
+    <div id="gcPend" class="gc-oculto">
+      <h1>Aguardando liberação</h1>
+      <p id="gcPendTx"></p>
+      <button class="gc-pri" id="gcPendOk" type="button">Voltar ao login</button>
+    </div>
   </div>
 </div>
-<button id="gcSair" class="gc-oculto" type="button">Sair<span class="gcl"> · versão de teste</span></button>
+<button id="gcSair" class="gc-oculto" type="button">Sair da conta</button>
 
 <div class="app">
 <aside class="sidebar" id="sidebar">
@@ -1779,6 +1819,8 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
   function mostrar(qual) {
     $('gcCarregando').classList.toggle('gc-oculto', qual !== 'carregando');
     $('gcForm').classList.toggle('gc-oculto', qual !== 'login');
+    $('gcFormCad').classList.toggle('gc-oculto', qual !== 'cadastro');
+    $('gcPend').classList.toggle('gc-oculto', qual !== 'pendente');
     if (qual === 'login') setTimeout(function () { $('gcEmail').focus(); }, 50);
   }
   function erro(t, det) { $('gcErro').textContent = t || ''; $('gcDet').textContent = det || ''; }
@@ -1801,6 +1843,11 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
     var u = r.data && r.data.user;
     if (!u) { mostrar('login'); return; }
     var p = await sb.from('perfis').select('nome,papel,ativo').eq('id', u.id).maybeSingle();
+    if (!p.error && p.data && !p.data.ativo) {
+      await sb.auth.signOut();
+      $('gcPendTx').textContent = 'Seu cadastro foi recebido e está aguardando a liberação do administrador. Tente entrar de novo mais tarde.';
+      mostrar('pendente'); return;
+    }
     if (p.error || !p.data || !p.data.ativo) {
       await sb.auth.signOut();
       mostrar('login'); erro('Seu acesso não está liberado. Fale com o administrador.');
@@ -1830,6 +1877,30 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
   }
 
   $('gcForm').addEventListener('submit', entrar);
+  $('gcIrCad').addEventListener('click', function () { erro(''); $('gcCadErro').textContent = ''; mostrar('cadastro'); setTimeout(function () { $('gcCadNome').focus(); }, 50); });
+  $('gcVoltarLogin').addEventListener('click', function () { mostrar('login'); });
+  $('gcPendOk').addEventListener('click', function () { mostrar('login'); });
+  $('gcFormCad').addEventListener('submit', async function () {
+    var er = $('gcCadErro'), b = $('gcCadEnviar'); er.textContent = '';
+    var nome = $('gcCadNome').value.trim(), email = $('gcCadEmail').value.trim(), s1 = $('gcCadSenha').value, s2 = $('gcCadSenha2').value;
+    if (!nome) { er.textContent = 'Digite seu nome.'; return; }
+    if (s1.length < 8) { er.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (s1 !== s2) { er.textContent = 'As senhas não são iguais.'; return; }
+    b.disabled = true; b.textContent = 'Enviando…';
+    var r = await sb.auth.signUp({ email: email, password: s1, options: { data: { nome: nome } } });
+    b.disabled = false; b.textContent = 'Enviar pedido';
+    if (r.error) {
+      var m = String(r.error.message || '');
+      er.textContent = /already|registered/i.test(m) ? 'Esse e-mail já tem cadastro. Use "Já tenho conta".' : (/rate|many|seconds/i.test(m) ? 'Muitas tentativas. Espere alguns minutos.' : (/password/i.test(m) ? 'Senha fraca. Use uma senha mais forte.' : (/signups? .*disabled|not allowed/i.test(m) ? 'Novos cadastros estão desativados.' : 'Não foi possível enviar o pedido.')));
+      return;
+    }
+    try { await sb.auth.signOut(); } catch (e) {}
+    $('gcCadSenha').value = ''; $('gcCadSenha2').value = '';
+    $('gcPendTx').textContent = (r.data && r.data.session === null && r.data.user && !r.data.user.email_confirmed_at && !r.data.user.confirmed_at)
+      ? 'Pedido enviado! Confirme seu e-mail pelo link que enviamos e depois aguarde a liberação do administrador.'
+      : 'Pedido enviado! Agora é só aguardar o administrador liberar seu acesso.';
+    mostrar('pendente');
+  });
   $('gcSair').addEventListener('click', function () { sair(''); });
   $('gcVer').addEventListener('click', function () {
     var s = $('gcSenha'); var v = s.type === 'password'; s.type = v ? 'text' : 'password'; this.textContent = v ? 'Ocultar senha' : 'Mostrar senha';
@@ -8052,5 +8123,120 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     } catch(e){ console.error(e); }
     return r;
   };
-})();</script></body>
+})();</script><script>
+/* ===== Acesso: pedidos de acesso (administrador) e abas liberadas por usuário ===== */
+(function(){
+  var ABAS = ['Pacientes','Agenda','Boletos','Pós-operatório','Laboratório','Orçamentos','Indicações','Rotina','Notas'];
+  var ROTULO = { 'Orçamentos': 'Leads' };
+  var NAVPAG = { 'Rotina': 'dashboard' };
+  var perm = null, ehAdmin = false, sbx = function(){ return window.gcSb; };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function aviso(t){ try{ mostrarToast(t); }catch(e){} }
+
+  /* ---- usuário comum: esconde abas sem acesso e trava edição nas abas "só ver" ---- */
+  function aplicarPermissoes(){
+    document.querySelectorAll('.sidebar .nav-btn').forEach(function(b){
+      var pg = b.getAttribute('data-page'), aba = pg === 'dashboard' ? 'Rotina' : pg;
+      if (ABAS.indexOf(aba) >= 0 && !(aba in perm)) b.style.display = 'none';
+    });
+    var liberadas = ABAS.filter(function(a){ return a in perm; });
+    var atual = typeof abaAtual !== 'undefined' ? abaAtual : 'Agenda';
+    if (liberadas.length && !(atual in perm)) window.abrirPagina(NAVPAG[liberadas[0]] || liberadas[0]);
+    marcarLeitura(atual);
+  }
+  function marcarLeitura(p){
+    var aba = p === 'dashboard' ? 'Rotina' : p;
+    document.body.classList.toggle('gc-ro', !!perm && (aba in perm) && perm[aba] === false);
+  }
+  var abrirAnt = window.abrirPagina;
+  window.abrirPagina = function(p){
+    var r = abrirAnt.apply(this, arguments);
+    if (perm) marcarLeitura(p);
+    return r;
+  };
+
+  /* ---- administrador: bolinha vermelha na cabeça + lista de pedidos ---- */
+  var pendentes = [];
+  function ponto(){
+    var ic = document.querySelector('.brand-icon'); if (!ic) return null;
+    var d = document.getElementById('gcPonto');
+    if (!d) { d = document.createElement('span'); d.id = 'gcPonto'; ic.appendChild(d); }
+    return d;
+  }
+  function consultar(){
+    var sb = sbx(); if (!sb || !ehAdmin) return Promise.resolve();
+    return sb.from('perfis').select('id,nome,email,criado_em').eq('ativo', false).order('criado_em').then(function(r){
+      pendentes = (r && !r.error && r.data) ? r.data : [];
+      var d = ponto(); if (d) { d.textContent = pendentes.length > 9 ? '9+' : String(pendentes.length); d.style.display = pendentes.length ? 'flex' : 'none'; }
+      var ic = document.querySelector('.brand-icon'); if (ic) ic.title = pendentes.length ? pendentes.length + ' pedido(s) de acesso' : 'Pedidos de acesso';
+      var o = document.getElementById('gcPed'); if (o) desenhar(o);
+    }, function(){});
+  }
+  function fechar(){ var o = document.getElementById('gcPed'); if (o) o.remove(); }
+  function dh(iso){ var d = new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+  function cartao(p){
+    var h = '<div class="gp2-c" data-id="'+esc(p.id)+'"><div class="gp2-n">'+esc(p.nome)+'</div><div class="gp2-m">'+esc(p.email||'')+(p.criado_em ? ' · pediu em '+dh(p.criado_em) : '')+'</div><div class="gp2-g">';
+    ABAS.forEach(function(a){
+      var pad = a === 'Rotina' ? 'n' : 'e';
+      h += '<label><span>'+esc(ROTULO[a]||a)+'</span><select data-aba="'+esc(a)+'"><option value="n"'+(pad==='n'?' selected':'')+'>Sem acesso</option><option value="v">Só ver</option><option value="e"'+(pad==='e'?' selected':'')+'>Ver e editar</option></select></label>';
+    });
+    return h + '</div><div class="gp2-b"><button type="button" class="btn btn-secondary" data-rec="1">Recusar</button><button type="button" class="btn btn-primary" data-lib="1">Liberar acesso</button></div></div>';
+  }
+  function desenhar(o){
+    var l = o.querySelector('.gp2-lista'); if (!l) return;
+    l.innerHTML = pendentes.length ? pendentes.map(cartao).join('') : '<div class="gp2-vazio">Nenhum pedido de acesso no momento.</div>';
+  }
+  function abrir(){
+    if (!ehAdmin || document.getElementById('gcPed')) return;
+    var o = document.createElement('div'); o.id = 'gcPed';
+    o.innerHTML = '<div class="gp2-box"><div class="gp2-top"><b>Pedidos de acesso</b><button type="button" class="gp2-x" data-f="1" aria-label="Fechar">✕</button></div><div class="gp2-dica">Escolha o que cada pessoa pode ver ou editar e toque em Liberar. Quem você recusar é apagado.</div><div class="gp2-lista"></div></div>';
+    document.body.appendChild(o); desenhar(o); consultar();
+    o.addEventListener('click', function(e){
+      if (e.target === o || e.target.closest('[data-f]')) { fechar(); return; }
+      var c = e.target.closest('.gp2-c'); if (!c) return;
+      var id = c.dataset.id, sb = sbx();
+      if (e.target.closest('[data-lib]')) {
+        var abas = []; c.querySelectorAll('select').forEach(function(s){ if (s.value !== 'n') abas.push({ aba: s.dataset.aba, editar: s.value === 'e' }); });
+        if (!abas.length) { aviso('Marque pelo menos uma aba.'); return; }
+        var b = e.target.closest('button'); b.disabled = true; b.textContent = 'Liberando…';
+        Promise.resolve(sb.rpc('liberar_acesso', { p_user: id, p_abas: abas })).then(function(r){
+          if (r && r.error) { b.disabled = false; b.textContent = 'Liberar acesso'; aviso('Não consegui liberar: ' + r.error.message); return; }
+          aviso('Acesso liberado.'); consultar();
+        });
+      } else if (e.target.closest('[data-rec]')) {
+        perguntarSimNao('Recusar pedido?', 'A conta de ' + (c.querySelector('.gp2-n').textContent) + ' será apagada. Ela poderá pedir de novo depois.', function(){
+          Promise.resolve(sb.rpc('recusar_acesso', { p_user: id })).then(function(r){
+            if (r && r.error) { aviso('Não consegui recusar: ' + r.error.message); return; }
+            aviso('Pedido recusado.'); consultar();
+          });
+        }, null);
+      }
+    });
+  }
+  window.gcAbrirPedidos = abrir;
+
+  function iniciarAdmin(){
+    ehAdmin = true;
+    var ic = document.querySelector('.brand-icon');
+    if (ic) { ic.style.cursor = 'pointer'; ic.addEventListener('click', abrir); }
+    consultar(); setInterval(consultar, 60000);
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) consultar(); });
+    window.addEventListener('focus', consultar);
+  }
+
+  window.gcSessao.then(function(){
+    var p = window.gcPerfil || {};
+    if (p.papel === 'admin') { iniciarAdmin(); return; }
+    var sb = sbx();
+    sb.auth.getUser().then(function(r){
+      var u = r.data && r.data.user; if (!u) return;
+      return sb.from('permissoes').select('aba,pode_editar').eq('user_id', u.id).then(function(x){
+        if (x.error) return;
+        perm = {}; (x.data||[]).forEach(function(q){ perm[q.aba] = !!q.pode_editar; });
+        aplicarPermissoes();
+      });
+    });
+  });
+})();
+</script></body>
 </html>
