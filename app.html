@@ -1277,6 +1277,13 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   #gcBalao { align-items: flex-end; padding: 0; }
   #gcBalao .gb { max-width: none; border-radius: 20px 20px 0 0; padding: 20px 18px calc(22px + env(safe-area-inset-bottom)); }
   #gcBalao button { min-height: 44px; }
+
+  /* listas (Pacientes, Pós-op, Laboratório…): a caixa de registros vai até o fim do painel branco */
+  body:is([data-aba="Pacientes"],[data-aba="Pós-operatório"],[data-aba="Laboratório"],[data-aba="Orçamentos"],[data-aba="Indicações"],[data-aba="Rotina"]) { height: 100dvh; overflow: hidden; }
+  body:is([data-aba="Pacientes"],[data-aba="Pós-operatório"],[data-aba="Laboratório"],[data-aba="Orçamentos"],[data-aba="Indicações"],[data-aba="Rotina"]) .main { height: 100dvh; min-height: 0; }
+  body:is([data-aba="Pacientes"],[data-aba="Pós-operatório"],[data-aba="Laboratório"],[data-aba="Orçamentos"],[data-aba="Indicações"],[data-aba="Rotina"]) .main > .page.active { min-height: 0 !important; overflow: hidden; }
+  .panel:has(> #tableWrap) { min-height: 0 !important; overflow: hidden; display: flex; flex-direction: column; padding-bottom: 6px; }
+  .panel:has(> #tableWrap) > #tableWrap { flex: 1 1 0; min-height: 0 !important; max-height: none !important; overflow-y: auto; }
 }
 </style>
 <style id="gcPrefs">
