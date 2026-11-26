@@ -12,7 +12,7 @@ f.textContent = 'ERRO NO APP: ' + (e && e.message ? e.message : '') + (e && e.li
 } catch (x) {}
 });
 </script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://kazoyedpjzhaicgbviut.supabase.co https://oalexandresjsj.github.io https://cdnjs.cloudflare.com; worker-src blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://kazoyedpjzhaicgbviut.supabase.co https://oalexandresjsj.github.io https://cdnjs.cloudflare.com; worker-src 'self' blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex,nofollow">
 <meta charset="UTF-8">
@@ -1437,7 +1437,21 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
 .gc-drop b { font-size: 14px; }
 .gc-drop span { font-size: 12px; color: var(--muted); }
 .gc-drop.sobre { border-color: var(--blue); background: rgba(47,111,181,.10); }
+
+/* aviso de versão nova */
+#gcNova { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 100003; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; border-radius: 999px; background: var(--blue); color: #fff; font: 700 13px 'Nunito','Segoe UI',system-ui,sans-serif; box-shadow: 0 8px 24px rgba(31,41,55,.28); white-space: nowrap; }
+#gcNova button { border: 0; cursor: pointer; font: inherit; border-radius: 999px; }
+#gcNova button[data-a] { background: #fff; color: var(--blue); padding: 6px 14px; }
+#gcNova button[data-f] { background: transparent; color: #fff; padding: 6px 8px; opacity: .8; }
 </style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4D6080">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tesãi">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){window.addEventListener("load",function(){try{navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}})}</script>
 </head>
 <body>
 <div id="gcLogin">
@@ -7507,6 +7521,35 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     if (!document.getElementById('impArquivo')) window.abrirImportacaoAgenda();
     setTimeout(function(){ enviar(f); }, 50);
   });
+})();
+
+/* Aviso de versão nova: confere (leve, só o cabeçalho do arquivo) ao voltar para o app e a cada 3 min */
+(function(){
+  if (!window.fetch || location.protocol === 'file:') return;
+  var base = null, mostrado = false;
+  function assinatura(){
+    return fetch(location.pathname, { method: 'HEAD', cache: 'no-store' })
+      .then(function(r){ return r.ok ? (r.headers.get('etag') || r.headers.get('last-modified') || null) : null; })
+      .catch(function(){ return null; });
+  }
+  function aviso(){
+    if (mostrado || document.getElementById('gcNova')) return; mostrado = true;
+    var d = document.createElement('div'); d.id = 'gcNova';
+    d.innerHTML = '<span>Nova versão disponível</span><button type="button" data-a="1">Atualizar</button><button type="button" data-f="1" aria-label="Fechar">✕</button>';
+    d.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.a) location.reload(); else { d.remove(); setTimeout(function(){ mostrado = false; }, 600000); }
+    });
+    document.body.appendChild(d);
+  }
+  function checar(){
+    if (mostrado || base === null) return;
+    assinatura().then(function(s){ if (s && s !== base) aviso(); });
+  }
+  assinatura().then(function(s){ base = s; });
+  setInterval(checar, 180000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) checar(); });
+  window.addEventListener('focus', checar);
 })();
 </script><script>/* ===== Celular: agenda compacta, menu, arrastar ===== */
 (function(){
