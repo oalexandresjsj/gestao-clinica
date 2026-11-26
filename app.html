@@ -1134,7 +1134,7 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
     </form>
   </div>
 </div>
-<button id="gcSair" class="gc-oculto" type="button">Sair · modo teste (somente leitura)</button>
+<button id="gcSair" class="gc-oculto" type="button">Sair · versão de teste</button>
 
 <div class="app">
 <aside class="sidebar" id="sidebar">
@@ -1635,50 +1635,348 @@ return OPCOES[campo] || null;
 }
   // ===== Camada de dados: Supabase (substitui o Apps Script / planilha) =====
   const GC_MAPA = {"Pacientes": ["pacientes", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["telefone", "Telefone", "t"], ["data_nascimento", "Data de nascimento", "d"], ["observacoes", "Observações", "t"]]], "Agenda": ["agenda", [["id", "ID", "t"], ["data_atendimento", "Data do atendimento", "d"], ["horario", "Horário", "h"], ["paciente", "Paciente", "t"], ["telefone", "Telefone", "t"], ["procedimento", "Procedimento", "t"], ["status", "Status", "t"], ["observacoes", "Observações", "t"], ["duracao", "Duração", "t"], ["desmarcado_em", "Desmarcado em", "d"]]], "Boletos": ["boletos", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["valor", "Valor", "n"], ["vencimento", "Vencimento", "d"], ["status", "Status", "t"], ["ultimo_contato", "Último contato", "d"], ["promessa_pagamento", "Promessa de pagamento", "d"], ["proxima_cobranca", "Próxima cobrança", "d"], ["data_pagamento", "Data do pagamento", "d"], ["observacoes", "Observações", "t"], ["retorno_paciente", "Retorno do paciente", "t"]]], "Pós-operatório": ["pos_operatorio", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["procedimento", "Procedimento", "t"], ["data_cirurgia", "Data da cirurgia", "d"], ["data_1_contato", "Data do 1º contato", "d"], ["status_1_contato", "Status do 1º contato", "t"], ["data_2_contato", "Data do 2º contato", "d"], ["status_2_contato", "Status do 2º contato", "t"], ["retorno_agendado", "Retorno agendado?", "t"]]], "Laboratório": ["laboratorio", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["material_servico", "Material/Serviço", "t"], ["laboratorio", "Laboratório", "t"], ["data_envio", "Data de envio", "d"], ["previsao_entrega", "Previsão de entrega", "d"], ["data_recebimento", "Data de recebimento", "d"], ["status", "Status", "t"], ["observacoes", "Observações", "t"]]], "Orçamentos": ["orcamentos", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["telefone", "Telefone", "t"], ["data_avaliacao", "Data da avaliação", "d"], ["contatos_feitos", "Contatos feitos", "t"], ["valor_orcamento", "Valor do orçamento", "n"], ["tratamento", "Tratamento", "t"], ["status", "Status", "t"], ["objecao_paciente", "Objeção do paciente", "t"], ["ultimo_contato", "Último contato", "d"], ["proximo_contato", "Próximo contato", "d"], ["etapa_followup", "Etapa do follow-up", "t"], ["resultado", "Resultado", "t"], ["observacoes", "Observações", "t"]]], "Indicações": ["indicacoes", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["status", "Status", "t"], ["data_contato", "Data do contato", "d"], ["indicado", "Indicado", "t"], ["telefone_indicado", "Telefone do indicado", "t"], ["compareceu", "Compareceu?", "t"], ["fechou", "Fechou?", "t"], ["valor_tratamento", "Valor do tratamento", "n"], ["comissao", "Comissão (1%)", "n"], ["observacoes", "Observações", "t"]]], "Notas": ["notas", [["id", "ID", "t"], ["nota", "Nota", "t"], ["data", "Data", "d"], ["horario", "Horário", "h"], ["status", "Status", "t"], ["cor", "Cor", "t"], ["agendamento", "Agendamento", "t"], ["aviso", "Aviso", "t"], ["agenda_id", "Agenda ID", "t"], ["posop_id", "Pós-op ID", "t"]]], "Rotina": ["rotina", [["id", "ID", "t"], ["tarefa", "Tarefa", "t"], ["frequencia", "Frequência", "t"], ["dia_programado", "Dia programado", "t"], ["data_execucao", "Data de execução", "d"], ["prazo", "Prazo", "d"], ["desmarcado_em", "Desmarcado em", "d"], ["status", "Status", "t"], ["observacoes", "Observações", "t"]]]};
-  let gcAvisouLeitura = false;
+  const GC_MAIUSC = ['Paciente', 'Indicado', 'Material/Serviço', 'Laboratório'];
+  const GC_TEXTO_CURTO = 'Nota';
+
   function gcHojeISO(deslocDias) {
     const d = new Date(Date.now() + (deslocDias || 0) * 86400000);
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
+  function gcOk(r, rotulo) { if (r && r.error) throw new Error((rotulo ? rotulo + ': ' : '') + r.error.message); return r; }
+  function gcISO(v) {
+    if (!v) return '';
+    const t = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+    const br = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return br ? br[3] + '-' + br[2] + '-' + br[1] : '';
+  }
+  function gcSomarDias(iso, dias) {
+    const [a, m, d] = iso.split('-').map(Number);
+    const x = new Date(a, m - 1, d, 12, 0, 0); x.setDate(x.getDate() + dias);
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  }
+  function gcDiaUtil(iso) {
+    const [a, m, d] = iso.split('-').map(Number);
+    const x = new Date(a, m - 1, d, 12, 0, 0); const w = x.getDay();
+    if (w === 6) x.setDate(x.getDate() + 2); else if (w === 0) x.setDate(x.getDate() + 1);
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  }
+  function gcProximoDiaSemana(nome) {
+    const mapa = { 'Domingo': 0, 'Segunda-feira': 1, 'Terça-feira': 2, 'Quarta-feira': 3, 'Quinta-feira': 4, 'Sexta-feira': 5, 'Sábado': 6 };
+    if (!(nome in mapa)) return '';
+    const x = new Date(); x.setHours(12, 0, 0, 0);
+    x.setDate(x.getDate() + ((mapa[nome] - x.getDay() + 7) % 7));
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  }
+  function gcMoeda(v) {
+    if (typeof v === 'number') return v;
+    const s = String(v == null ? '' : v).trim();
+    if (!s) return NaN;
+    if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, ''));
+    return parseFloat(s.replace(/[^\d.-]/g, ''));
+  }
+  function gcTokens(n) {
+    return String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z\s]/g, ' ')
+      .split(/\s+/).filter(t => t && ['DE', 'DA', 'DO', 'DOS', 'DAS', 'E'].indexOf(t) < 0);
+  }
+  function gcMesmoPaciente(a, b) {
+    const x = gcTokens(a), y = gcTokens(b);
+    if (!x.length || !y.length) return false;
+    if (x.join(' ') === y.join(' ')) return true;
+    if (x[0] !== y[0]) return false;
+    const curto = x.length <= y.length ? x : y, longo = x.length <= y.length ? y : x;
+    return curto.length >= 2 && curto.every(t => longo.indexOf(t) >= 0);
+  }
+  const gcDesmarcado = (st) => { st = String(st || '').trim(); return st === 'Desmarcou' || st === 'Cancelado'; };
+
+  // linha do banco -> registro com os nomes de coluna da tela
+  function gcParaTela(aba, linha) {
+    const o = {};
+    GC_MAPA[aba][1].forEach(c => { const v = linha[c[0]]; o[c[1]] = (v === null || v === undefined) ? '' : v; });
+    return gcAjustarTela(aba, o);
+  }
+  function gcAjustarTela(aba, o) {
+    if (aba === 'Boletos') {
+      const st = String(o['Status'] || '').trim();
+      if ((st === '' || st === 'Pendente') && o['Vencimento'] && o['Vencimento'] < gcHojeISO(0)) o['Status'] = 'Atrasado';
+    }
+    if (aba === 'Indicações') {
+      if (!o['Status']) o['Status'] = 'Pendente';
+      const vt = gcMoeda(o['Valor do tratamento']);
+      if (!isNaN(vt) && vt > 0) o['Comissão (1%)'] = Number((vt * 0.01).toFixed(2));
+    }
+    return o;
+  }
+  // registro da tela -> linha do banco (só as colunas presentes em reg)
+  function gcParaBanco(aba, reg) {
+    const linha = {};
+    GC_MAPA[aba][1].forEach(c => {
+      if (!Object.prototype.hasOwnProperty.call(reg, c[1])) return;
+      let v = reg[c[1]];
+      if (c[2] === 'd') { const iso = gcISO(v); linha[c[0]] = iso || null; }
+      else if (c[2] === 'n') { const n = gcMoeda(v); linha[c[0]] = isNaN(n) ? null : n; }
+      else linha[c[0]] = (v === null || v === undefined) ? '' : String(v);
+    });
+    return linha;
+  }
+
   async function gcObterDados() {
     const sb = window.gcSb, saida = {};
     const abas = Object.keys(GC_MAPA);
     const respostas = await Promise.all(abas.map(a => sb.from(GC_MAPA[a][0]).select('*').order('criado_em', { ascending: true }).order('id', { ascending: true }).limit(5000)));
-    const limite = gcHojeISO(-60);
-    const rc = await sb.from('checklist').select('data,item').gte('data', limite).limit(5000);
-    const hoje = gcHojeISO(0);
-    abas.forEach((aba, i) => {
-      const r = respostas[i];
-      if (r.error) throw new Error(aba + ': ' + r.error.message);
-      const cols = GC_MAPA[aba][1];
-      saida[aba] = (r.data || []).map(linha => {
-        const o = {};
-        cols.forEach(c => { const v = linha[c[0]]; o[c[1]] = (v === null || v === undefined) ? '' : v; });
-        if (aba === 'Boletos') {
-          const st = String(o['Status'] || '').trim();
-          if ((st === '' || st === 'Pendente') && o['Vencimento'] && o['Vencimento'] < hoje) o['Status'] = 'Atrasado';
-        }
-        if (aba === 'Indicações') {
-          if (!o['Status']) o['Status'] = 'Pendente';
-          const vt = Number(o['Valor do tratamento']);
-          if (!isNaN(vt) && vt > 0) o['Comissão (1%)'] = Number((vt * 0.01).toFixed(2));
-        }
-        return o;
-      });
-    });
-    if (rc.error) throw new Error('Checklist: ' + rc.error.message);
+    const rc = await sb.from('checklist').select('data,item').gte('data', gcHojeISO(-60)).limit(5000);
+    abas.forEach((aba, i) => { gcOk(respostas[i], aba); saida[aba] = (respostas[i].data || []).map(l => gcParaTela(aba, l)); });
+    gcOk(rc, 'Checklist');
     const mapaCheck = {};
     (rc.data || []).forEach(x => { (mapaCheck[x.data] = mapaCheck[x.data] || []).push(String(x.item)); });
     saida['_checklist'] = mapaCheck;
     saida['_versao'] = 'notas-v12';
     return saida;
   }
+
+  // ---- regras de preenchimento antes de salvar (iguais às do Code.gs) ----
+  function gcPrepararRegistro(aba, bruto, ehEdicao, alteracoes) {
+    const reg = Object.assign({}, bruto);
+    GC_MAIUSC.forEach(k => { if (reg[k]) reg[k] = String(reg[k]).trim().toUpperCase(); });
+    if (aba === 'Agenda' && !reg['Status']) reg['Status'] = 'Pendente';
+    if (aba === 'Boletos' && !reg['Status']) reg['Status'] = 'Pendente';
+    if (aba === 'Laboratório' && !reg['Status']) reg['Status'] = reg['Data de recebimento'] ? 'Recebido' : 'Em andamento';
+    if (aba === 'Rotina' && !reg['Status']) reg['Status'] = reg['Data de execução'] ? 'Concluído' : 'Pendente';
+    if (aba === 'Indicações') {
+      if (reg['Indicado'] && (!reg['Status'] || reg['Status'] === 'Pendente')) reg['Status'] = 'Indicou';
+      if (!reg['Status']) reg['Status'] = 'Pendente';
+      const vt = gcMoeda(reg['Valor do tratamento']);
+      reg['Comissão (1%)'] = (!isNaN(vt) && vt > 0) ? Number((vt * 0.01).toFixed(2)) : '';
+    }
+    if (aba === 'Pós-operatório') {
+      const dc = gcISO(reg['Data da cirurgia']);
+      const mudou = !ehEdicao || Object.prototype.hasOwnProperty.call(alteracoes, 'Data da cirurgia');
+      if (dc && mudou) {
+        const p = gcDiaUtil(gcSomarDias(dc, 1));
+        reg['Data do 1º contato'] = p;
+        reg['Data do 2º contato'] = gcDiaUtil(gcSomarDias(p, 5));
+      }
+      if (!reg['Status do 1º contato']) reg['Status do 1º contato'] = 'Pendente';
+      if (!reg['Status do 2º contato']) reg['Status do 2º contato'] = 'Pendente';
+      if (!reg['Retorno agendado?']) reg['Retorno agendado?'] = 'Não';
+    }
+    if (aba === 'Orçamentos') {
+      if (!reg['Resultado']) reg['Resultado'] = 'Em aberto';
+      const encerrado = ['Fechou', 'Não fechou', 'Sem interesse'].includes(reg['Resultado']);
+      if (encerrado) {
+        reg['Status'] = 'Concluído'; reg['Próximo contato'] = '';
+      } else {
+        if (!reg['Status'] || reg['Status'] === 'Concluído') reg['Status'] = 'Em andamento';
+        const INTERVALOS = [1, 3, 5, 10, 15, 30, 45, 60];
+        let feitos = parseInt(reg['Contatos feitos'], 10);
+        if (isNaN(feitos)) {
+          const ix = ['1º contato', '2º contato', '3º contato', '4º contato', 'Último contato'].indexOf(String(reg['Etapa do follow-up'] || '').trim());
+          feitos = ix >= 0 ? ix : 0;
+        }
+        feitos = Math.max(0, Math.min(INTERVALOS.length, feitos));
+        reg['Contatos feitos'] = feitos;
+        reg['Etapa do follow-up'] = feitos >= INTERVALOS.length ? 'Cadência concluída' : (feitos + 1) + 'º contato';
+        const hoje = gcHojeISO(0), av = gcISO(reg['Data da avaliação']);
+        if (feitos > 0 && !gcISO(reg['Último contato'])) reg['Último contato'] = hoje;
+        const ult = gcISO(reg['Último contato']);
+        if (feitos >= INTERVALOS.length) reg['Próximo contato'] = '';
+        else {
+          let base = '';
+          if (feitos === 0) { if (av) base = gcSomarDias(av, INTERVALOS[0]); }
+          else if (ult) base = gcSomarDias(ult, INTERVALOS[feitos]);
+          if (base) { if (base < hoje) base = hoje; reg['Próximo contato'] = gcDiaUtil(base); }
+        }
+      }
+    }
+    if (aba === 'Rotina' && !gcISO(reg['Prazo']) && reg['Dia programado']) reg['Prazo'] = gcProximoDiaSemana(reg['Dia programado']);
+    return reg;
+  }
+
+  function gcDeveSincronizar(aba, reg) {
+    if (aba === 'Agenda') return false;
+    if (aba !== 'Orçamentos') return true;
+    return String((reg && reg['Resultado']) || '').trim() === 'Fechou';
+  }
+  // Cadastra em Pacientes quem ainda não existe (e completa telefone que falta)
+  async function gcSincronizarPacientes(nomes, telefones) {
+    const sb = window.gcSb;
+    const r = gcOk(await sb.from('pacientes').select('id,paciente,telefone').limit(5000), 'Pacientes');
+    const existentes = new Set();
+    for (const p of (r.data || [])) {
+      const n = String(p.paciente || '').trim().toUpperCase();
+      if (!n) continue;
+      existentes.add(n);
+      if (!p.telefone && telefones[n]) gcOk(await sb.from('pacientes').update({ telefone: telefones[n] }).eq('id', p.id), 'Pacientes');
+    }
+    const novos = [];
+    nomes.forEach(n => {
+      const limpo = String(n || '').trim().toUpperCase();
+      if (!limpo || existentes.has(limpo)) return;
+      existentes.add(limpo);
+      novos.push({ id: 'PAC_' + crypto.randomUUID(), paciente: limpo, telefone: telefones[limpo] || '' });
+    });
+    if (novos.length) gcOk(await sb.from('pacientes').insert(novos), 'Pacientes');
+  }
+  function gcColetarSync(aba, regs) {
+    const nomes = [], tels = {};
+    if (aba === 'Pacientes' || aba === 'Indicações') return { nomes, tels };
+    regs.forEach(reg => {
+      if (!gcDeveSincronizar(aba, reg) || !reg['Paciente']) return;
+      const n = String(reg['Paciente']).trim().toUpperCase();
+      nomes.push(n);
+      if (reg['Telefone']) tels[n] = String(reg['Telefone']).trim();
+    });
+    return { nomes, tels };
+  }
+
+  async function gcAdicionarVarios(aba, lista) {
+    if (!GC_MAPA[aba]) throw new Error('Aba inválida: ' + aba);
+    if (!Array.isArray(lista) || !lista.length) return { sucesso: true, mensagem: 'Nenhum registro para salvar.' };
+    const sb = window.gcSb, tb = GC_MAPA[aba][0];
+    const regs = lista.map(item => {
+      const r = gcPrepararRegistro(aba, item, false, item);
+      if (!r['ID']) r['ID'] = crypto.randomUUID();
+      return r;
+    });
+    const colunas = GC_MAPA[aba][1].map(c => c[1]);
+    const linhas = regs.map(r => { const base = {}; colunas.forEach(c => { if (!(c in r)) r[c] = ''; }); return gcParaBanco(aba, r); });
+    gcOk(await sb.from(tb).insert(linhas), aba);
+    const s = gcColetarSync(aba, regs);
+    if (s.nomes.length) await gcSincronizarPacientes(s.nomes, s.tels);
+    return { sucesso: true, ids: regs.map(r => r['ID']), mensagem: regs.length > 1 ? regs.length + ' registros cadastrados com sucesso!' : 'Registro cadastrado com sucesso!' };
+  }
+
+  // Linha do pós-operatório mais recente do paciente (cirurgia anterior ao atendimento)
+  async function gcAcharPosOp(nome, dataISO, retornoSim) {
+    const r = gcOk(await window.gcSb.from('pos_operatorio').select('id,paciente,data_cirurgia,retorno_agendado').limit(5000), 'Pós-operatório');
+    let melhor = null, melhorData = '';
+    (r.data || []).forEach(l => {
+      if (!gcMesmoPaciente(l.paciente, nome)) return;
+      const eSim = String(l.retorno_agendado || '').trim().toLowerCase() === 'sim';
+      if (retornoSim !== null && eSim !== retornoSim) return;
+      const dc = l.data_cirurgia || '';
+      if (dataISO && dc && dc > dataISO) return;
+      if (!melhor || dc >= melhorData) { melhor = l; melhorData = dc; }
+    });
+    return melhor;
+  }
+  async function gcDefinirRetornoPosOp(linha, valor) {
+    gcOk(await window.gcSb.from('pos_operatorio').update({ retorno_agendado: valor }).eq('id', linha.id), 'Pós-operatório');
+    return { acao: 'atualizar', id: linha.id, campos: { 'Retorno agendado?': valor } };
+  }
+  async function gcRegraPosOpAgenda(reg) {
+    const st = String(reg['Status'] || '').trim();
+    if (['Compareceu', 'Faltou', 'Cancelado', 'Desmarcou'].indexOf(st) < 0) return null;
+    const achado = await gcAcharPosOp(reg['Paciente'], gcISO(reg['Data do atendimento']), st === 'Compareceu' ? null : true);
+    if (!achado) return null;
+    if (st === 'Compareceu') {
+      gcOk(await window.gcSb.from('pos_operatorio').delete().eq('id', achado.id), 'Pós-operatório');
+      return { acao: 'excluir', id: achado.id };
+    }
+    return gcDefinirRetornoPosOp(achado, 'Não');
+  }
+
+  async function gcAtualizar(aba, id, alteracoes) {
+    if (!GC_MAPA[aba]) throw new Error('Aba inválida: ' + aba);
+    alteracoes = alteracoes || {};
+    const sb = window.gcSb, tb = GC_MAPA[aba][0];
+    const r = gcOk(await sb.from(tb).select('*').eq('id', id).maybeSingle(), aba);
+    if (!r.data) throw new Error('Registro não encontrado.');
+    const atual = gcParaTela(aba, r.data);
+    if (aba === 'Boletos') atual['Status'] = r.data.status; // não gravar o "Atrasado" que é só de tela
+    if (aba === 'Indicações') atual['Status'] = r.data.status;
+    const novo = Object.assign({}, atual, alteracoes);
+    if (aba === 'Agenda' && Object.prototype.hasOwnProperty.call(alteracoes, 'Status')) {
+      if (gcDesmarcado(alteracoes['Status'])) { if (!alteracoes['Desmarcado em']) novo['Desmarcado em'] = gcHojeISO(0); }
+      else novo['Desmarcado em'] = '';
+    }
+    const prep = gcPrepararRegistro(aba, novo, true, alteracoes);
+    prep['ID'] = id;
+    const linha = gcParaBanco(aba, prep); delete linha.id;
+    const sv = gcOk(await sb.from(tb).update(linha).eq('id', id).select('*').maybeSingle(), aba);
+    const s = gcColetarSync(aba, [prep]);
+    if (s.nomes.length) await gcSincronizarPacientes(s.nomes, s.tels);
+    let posop = null;
+    if (aba === 'Agenda' && Object.prototype.hasOwnProperty.call(alteracoes, 'Status')) posop = await gcRegraPosOpAgenda(prep);
+    return { sucesso: true, mensagem: 'Registro atualizado com sucesso!', registro: gcParaTela(aba, sv.data || linha), posop: posop };
+  }
+
+  async function gcExcluir(aba, id) {
+    if (!GC_MAPA[aba]) throw new Error('Aba inválida: ' + aba);
+    const sb = window.gcSb, tb = GC_MAPA[aba][0];
+    const extra = {};
+    if (aba === 'Agenda') {
+      const r = gcOk(await sb.from(tb).select('*').eq('id', id).maybeSingle(), aba);
+      if (r.data) {
+        const reg = gcParaTela(aba, r.data), st = String(reg['Status'] || '').trim();
+        if (st !== 'Compareceu' && st !== 'Faltou' && !gcDesmarcado(st)) {
+          const achado = await gcAcharPosOp(reg['Paciente'], gcISO(reg['Data do atendimento']), true);
+          if (achado) extra.posop = await gcDefinirRetornoPosOp(achado, 'Não');
+        }
+        const n = gcOk(await sb.from('notas').select('id').eq('agenda_id', id).limit(1), 'Notas');
+        if (n.data && n.data.length) {
+          const campos = { 'Agendamento': '', 'Aviso': '', 'Status': 'Pendente', 'Agenda ID': '', 'Pós-op ID': '' };
+          gcOk(await sb.from('notas').update({ agendamento: '', aviso: '', status: 'Pendente', agenda_id: '', posop_id: '' }).eq('id', n.data[0].id), 'Notas');
+          extra.nota = { id: n.data[0].id, campos: campos };
+        }
+      }
+    }
+    gcOk(await sb.from(tb).delete().eq('id', id), aba);
+    return Object.assign({ sucesso: true, mensagem: 'Registro excluído!' }, extra);
+  }
+
+  async function gcChecklist(dataISO, item, marcado) {
+    const sb = window.gcSb;
+    if (marcado) gcOk(await sb.from('checklist').upsert({ data: dataISO, item: String(item) }, { onConflict: 'data,item', ignoreDuplicates: true }), 'Checklist');
+    else gcOk(await sb.from('checklist').delete().eq('data', dataISO).eq('item', String(item)), 'Checklist');
+    return { sucesso: true };
+  }
+
+  // Nota simples (o agendamento automático por texto ainda não foi migrado)
+  async function gcCriarNota(campos) {
+    const nota = {
+      'Nota': String((campos && campos['Nota']) || '').trim().slice(0, 500),
+      'Data': (campos && campos['Data']) || '', 'Horário': (campos && campos['Horário']) || '',
+      'Status': 'Pendente', 'Cor': (campos && campos['Cor']) || '', 'Agendamento': '', 'Aviso': '', 'Agenda ID': '', 'Pós-op ID': ''
+    };
+    if (!nota['Nota']) throw new Error('Nota vazia.');
+    nota['ID'] = crypto.randomUUID();
+    gcOk(await window.gcSb.from('notas').insert(gcParaBanco('Notas', nota)), 'Notas');
+    return { sucesso: true, ids: [nota['ID']], registro: nota, agenda: null, agendaAtualizada: null, posop: null, mensagem: '' };
+  }
+
+  async function gcDesfazerAgendamentoNota(idNota) {
+    const sb = window.gcSb;
+    const r = gcOk(await sb.from('notas').select('*').eq('id', idNota).maybeSingle(), 'Notas');
+    if (!r.data) throw new Error('Nota não encontrada.');
+    let posop = null, removido = '';
+    if (r.data.posop_id) {
+      gcOk(await sb.from('pos_operatorio').update({ retorno_agendado: 'Não' }).eq('id', r.data.posop_id), 'Pós-operatório');
+      posop = { acao: 'atualizar', id: r.data.posop_id, campos: { 'Retorno agendado?': 'Não' } };
+    }
+    if (r.data.agenda_id) { gcOk(await sb.from('agenda').delete().eq('id', r.data.agenda_id), 'Agenda'); removido = r.data.agenda_id; }
+    const campos = { 'Agendamento': '', 'Aviso': 'Agendamento desfeito.', 'Status': 'Pendente', 'Agenda ID': '', 'Pós-op ID': '' };
+    gcOk(await sb.from('notas').update({ agendamento: '', aviso: campos['Aviso'], status: 'Pendente', agenda_id: '', posop_id: '' }).eq('id', idNota), 'Notas');
+    return { sucesso: true, registro: campos, agendaRemovida: removido, posop: posop };
+  }
+
+  let gcAvisouPendente = false;
   async function gcChamar(metodo, args) {
     await window.gcSessao;
-    if (metodo === 'obterDados') return gcObterDados();
-    if (metodo === 'obterConfigMicrofone') return null;
-    if (!gcAvisouLeitura) { gcAvisouLeitura = true; mostrarToast('Modo de teste: somente leitura. Nada foi salvo.'); }
-    throw new Error('Somente leitura (' + metodo + ')');
+    switch (metodo) {
+      case 'obterDados': return gcObterDados();
+      case 'obterConfigMicrofone': return null;
+      case 'adicionarRegistro': return gcAdicionarVarios(args[0], [args[1]]);
+      case 'adicionarVariosRegistros': return gcAdicionarVarios(args[0], args[1]);
+      case 'atualizarRegistro': return gcAtualizar(args[0], args[1], args[2]);
+      case 'excluirRegistro': return gcExcluir(args[0], args[1]);
+      case 'salvarChecklistItem': return gcChecklist(args[0], args[1], args[2]);
+      case 'criarNotaInteligente': return gcCriarNota(args[0]);
+      case 'desfazerAgendamentoNota': return gcDesfazerAgendamentoNota(args[0]);
+      default:
+        if (!gcAvisouPendente) { gcAvisouPendente = true; mostrarToast('Esta função ainda não foi migrada para o novo sistema.'); }
+        throw new Error('Função ainda não migrada (' + metodo + ')');
+    }
   }
   function chamarServidor(metodo, args, sucesso, falha) {
     gcChamar(metodo, args || []).then(
