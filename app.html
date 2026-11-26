@@ -1524,11 +1524,13 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
       <input id="gcCadNome" type="text" autocomplete="name" maxlength="80" required>
       <label for="gcCadEmail">E-mail</label>
       <input id="gcCadEmail" type="email" autocomplete="email" required>
-      <label for="gcCadSenha">Senha (mínimo 8 caracteres)</label>
-      <input id="gcCadSenha" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="gcCadSenha">Senha (mínimo 12 caracteres)</label>
+      <input id="gcCadSenha" type="password" autocomplete="new-password" minlength="12" required>
       <label for="gcCadSenha2">Repita a senha</label>
-      <input id="gcCadSenha2" type="password" autocomplete="new-password" minlength="8" required>
+      <input id="gcCadSenha2" type="password" autocomplete="new-password" minlength="12" required>
+      <div class="gc-det">A senha precisa ter letra minúscula, maiúscula, número e símbolo (ex.: ! @ #).</div>
       <div class="gc-erro" id="gcCadErro"></div>
+      <div class="gc-det" id="gcCadDet"></div>
       <button class="gc-pri" id="gcCadEnviar" type="submit">Enviar pedido</button>
       <button class="gc-link" id="gcVoltarLogin" type="button">Já tenho conta · entrar</button>
     </form>
@@ -1881,16 +1883,17 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
   $('gcVoltarLogin').addEventListener('click', function () { mostrar('login'); });
   $('gcPendOk').addEventListener('click', function () { mostrar('login'); });
   $('gcFormCad').addEventListener('submit', async function () {
-    var er = $('gcCadErro'), b = $('gcCadEnviar'); er.textContent = '';
+    var er = $('gcCadErro'), b = $('gcCadEnviar'); er.textContent = ''; $('gcCadDet').textContent = '';
     var nome = $('gcCadNome').value.trim(), email = $('gcCadEmail').value.trim(), s1 = $('gcCadSenha').value, s2 = $('gcCadSenha2').value;
     if (!nome) { er.textContent = 'Digite seu nome.'; return; }
-    if (s1.length < 8) { er.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (s1.length < 12) { er.textContent = 'A senha precisa ter pelo menos 12 caracteres.'; return; }
+    if (!/[a-z]/.test(s1) || !/[A-Z]/.test(s1) || !/[0-9]/.test(s1) || !/[^A-Za-z0-9]/.test(s1)) { er.textContent = 'A senha precisa ter letra minúscula, maiúscula, número e símbolo.'; return; }
     if (s1 !== s2) { er.textContent = 'As senhas não são iguais.'; return; }
     b.disabled = true; b.textContent = 'Enviando…';
     var r = await sb.auth.signUp({ email: email, password: s1, options: { data: { nome: nome } } });
     b.disabled = false; b.textContent = 'Enviar pedido';
     if (r.error) {
-      var m = String(r.error.message || '');
+      var m = String(r.error.message || ''); $('gcCadDet').textContent = '(detalhe técnico: ' + m + ')';
       er.textContent = /already|registered/i.test(m) ? 'Esse e-mail já tem cadastro. Use "Já tenho conta".' : (/rate|many|seconds/i.test(m) ? 'Muitas tentativas. Espere alguns minutos.' : (/password/i.test(m) ? 'Senha fraca. Use uma senha mais forte.' : (/signups? .*disabled|not allowed/i.test(m) ? 'Novos cadastros estão desativados.' : 'Não foi possível enviar o pedido.')));
       return;
     }
