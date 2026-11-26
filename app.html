@@ -1456,7 +1456,22 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
 #gcNova button[data-a] { background: #fff; color: var(--blue); padding: 6px 14px; }
 #gcNova button[data-f] { background: transparent; color: #fff; padding: 6px 8px; opacity: .8; }
 </style>
-<link rel="manifest" href="manifest.webmanifest">
+<style>#gcLabs{position:fixed;inset:0;z-index:320;background:rgba(15,20,35,.5);display:flex;align-items:center;justify-content:center;padding:14px}
+#gcLabs .gl-box{background:var(--white,#fff);color:var(--text,#2b3a55);border-radius:18px;width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#gcLabs .gl-top{display:flex;align-items:center;justify-content:space-between;font-size:17px;margin-bottom:6px}
+#gcLabs .gl-fechar{border:0;background:transparent;font-size:18px;color:var(--muted,#7a8599);padding:6px 8px;cursor:pointer}
+#gcLabs .gl-dica{font-size:12px;color:var(--muted,#7a8599);margin-bottom:10px;line-height:1.4}
+#gcLabs .gl-lista{overflow-y:auto;flex:1;min-height:60px}
+#gcLabs .gl-lin{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+#gcLabs .gl-lin input{border:1.5px solid var(--border,#dfe3ea);border-radius:10px;padding:10px;font:inherit;font-size:15px;background:var(--cream,#f6f4f0);color:inherit;min-width:0}
+#gcLabs .gl-n{flex:1.3}#gcLabs .gl-t{flex:1}
+#gcLabs .gl-x{border:0;background:transparent;color:#D14B4B;font-size:16px;padding:8px;cursor:pointer}
+#gcLabs .gl-vazio{font-size:13px;color:var(--muted,#7a8599);padding:14px 0;text-align:center}
+#gcLabs .gl-add{border:1.5px dashed var(--border,#dfe3ea);background:transparent;color:var(--blue,#4D6080);border-radius:10px;padding:10px;font:inherit;font-weight:700;margin:2px 0 12px;cursor:pointer}
+#gcLabs .gl-rod{display:flex;gap:8px;justify-content:flex-end}
+@media (max-width:700px){#gcLabs .gl-lin{flex-wrap:wrap}#gcLabs .gl-n{flex:1 1 100%}#gcLabs .gl-t{flex:1}}
+@media print{#gcLabs{display:none!important}}
+</style><link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4D6080">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -5788,6 +5803,7 @@ const recebido = igual(r['Status'], 'Recebido');
 botoes += recebido
 ? `<button class="icon-btn undo" title="Desfazer recebimento" onclick="executarAlternancia('${aba}', '${id}', 'alternarLab')">↺</button>`
 : `<button class="icon-btn quick" title="Marcar como Recebido" onclick="executarAlternancia('${aba}', '${id}', 'alternarLab')">✓</button>`;
+botoes += `<button class="icon-btn quick" title="Chamar o laboratório no WhatsApp" onclick="gcLabZap('${id}')">☎</button>`;
 }
 if (abaAtual === 'Rotina') {
 const concluido = igual(r['Status'], 'Concluído');
@@ -7565,6 +7581,118 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   setInterval(checar, 180000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) checar(); });
   window.addEventListener('focus', checar);
+})();
+</script><script>
+/* ===== Laboratórios: cadastro de contatos (nome + telefone) e WhatsApp no trabalho ===== */
+(function(){
+  var TB = 'laboratorios_contatos';
+  window.gcLabs = [];
+  function mob(){ return window.matchMedia && window.matchMedia('(max-width:700px)').matches; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function norm(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim().toUpperCase(); }
+  function numeroWpp(t){
+    var d = String(t||'').replace(/\D/g,''); if (!d) return '';
+    if (d.indexOf('55')===0 && d.length>=12) return d;
+    if (d.length===10 || d.length===11) return '55'+d;
+    if (d.length===8 || d.length===9) return '5592'+d;
+    return d.length>=10 ? d : '';
+  }
+  function aplicarOpcoes(){
+    try { if (window.gcLabs.length && typeof OPCOES !== 'undefined') OPCOES['Laboratório'] = window.gcLabs.map(function(l){ return l.nome; }); } catch(e){}
+  }
+  window.gcCarregarLabs = function(){
+    var sb = window.gcSb; if (!sb) return Promise.resolve();
+    return sb.from(TB).select('id,nome,telefone').order('nome').then(function(r){
+      if (r && !r.error && r.data) { window.gcLabs = r.data; aplicarOpcoes(); }
+    }, function(){});
+  };
+
+  /* ---- tela de cadastro ---- */
+  function fechar(){ var o = document.getElementById('gcLabs'); if (o) o.remove(); }
+  function linha(l){
+    return '<div class="gl-lin" data-id="'+esc(l.id||'')+'"><input class="gl-n" placeholder="Nome do laboratório" value="'+esc(l.nome||'')+'" maxlength="60">'
+      + '<input class="gl-t" type="tel" inputmode="tel" placeholder="Telefone (WhatsApp)" value="'+esc(l.telefone||'')+'" maxlength="20">'
+      + '<button type="button" class="gl-x" data-x="1" aria-label="Remover">✕</button></div>';
+  }
+  window.gcAbrirLabs = function(){
+    fechar();
+    var o = document.createElement('div'); o.id = 'gcLabs'; o.dataset.rem = '';
+    o.innerHTML = '<div class="gl-box"><div class="gl-top"><b>Laboratórios</b><button type="button" class="gl-fechar" data-f="1" aria-label="Fechar">✕</button></div>'
+      + '<div class="gl-dica">Nome e telefone de cada laboratório. O telefone é usado para abrir o WhatsApp direto no trabalho.</div>'
+      + '<div class="gl-lista" id="glLista"></div>'
+      + '<button type="button" class="gl-add" data-add="1">+ Adicionar laboratório</button>'
+      + '<div class="gl-rod"><button type="button" class="btn btn-secondary" data-f="1">Cancelar</button><button type="button" class="btn btn-primary" id="glSalvar">Salvar</button></div></div>';
+    document.body.appendChild(o);
+    var lista = o.querySelector('#glLista');
+    function desenhar(){ lista.innerHTML = window.gcLabs.length ? window.gcLabs.map(linha).join('') : '<div class="gl-vazio">Nenhum laboratório cadastrado.</div>'; }
+    desenhar();
+    window.gcCarregarLabs().then(desenhar);
+    o.addEventListener('click', function(e){
+      if (e.target === o || e.target.closest('[data-f]')) { fechar(); return; }
+      if (e.target.closest('[data-add]')) {
+        var v = lista.querySelector('.gl-vazio'); if (v) v.remove();
+        lista.insertAdjacentHTML('beforeend', linha({})); var ins = lista.querySelectorAll('.gl-n'); ins[ins.length-1].focus(); return;
+      }
+      var x = e.target.closest('[data-x]');
+      if (x) { var li = x.closest('.gl-lin'); if (li.dataset.id) o.dataset.rem += (o.dataset.rem ? ',' : '') + li.dataset.id; li.remove(); return; }
+      if (e.target.id === 'glSalvar') salvar(o, lista);
+    });
+  };
+  function salvar(o, lista){
+    var sb = window.gcSb, btn = o.querySelector('#glSalvar'); if (!sb) return;
+    var linhas = [].slice.call(lista.querySelectorAll('.gl-lin')).map(function(li){
+      return { id: li.dataset.id || '', nome: li.querySelector('.gl-n').value.trim().toUpperCase(), telefone: li.querySelector('.gl-t').value.trim() };
+    }).filter(function(l){ return l.nome; });
+    var vistos = {}; for (var i=0;i<linhas.length;i++){ var k = norm(linhas[i].nome); if (vistos[k]) { try{ mostrarToast('Tem laboratório repetido: '+linhas[i].nome); }catch(e){} return; } vistos[k] = 1; }
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    var ops = [];
+    (o.dataset.rem ? o.dataset.rem.split(',') : []).forEach(function(id){ ops.push(sb.from(TB).delete().eq('id', id)); });
+    linhas.forEach(function(l){
+      if (l.id) ops.push(sb.from(TB).update({ nome: l.nome, telefone: l.telefone }).eq('id', l.id));
+      else ops.push(sb.from(TB).insert({ nome: l.nome, telefone: l.telefone }));
+    });
+    Promise.all(ops).then(function(rs){
+      var er = rs.filter(function(r){ return r && r.error; })[0];
+      if (er) { btn.disabled = false; btn.textContent = 'Salvar'; try{ mostrarToast('Não consegui salvar: '+er.error.message); }catch(e){} return; }
+      return window.gcCarregarLabs().then(function(){ fechar(); try{ mostrarToast('Laboratórios salvos.'); }catch(e){} });
+    });
+  }
+
+  /* ---- WhatsApp direto do trabalho ---- */
+  function dm(iso){ var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||'')); return m ? m[3]+'/'+m[2] : ''; }
+  window.gcLabZap = function(id){
+    var reg = (dados['Laboratório']||[]).find(function(x){ return String(x.ID)===String(id); }); if (!reg) return;
+    var go = function(){
+      var nome = reg['Laboratório'] || '';
+      var lab = window.gcLabs.find(function(l){ return norm(l.nome) === norm(nome); });
+      var tel = lab ? numeroWpp(lab.telefone) : '';
+      if (!tel) { try{ mostrarToast((nome ? nome : 'Esse laboratório') + ' está sem telefone. Cadastre em Laboratórios.'); }catch(e){} window.gcAbrirLabs(); return; }
+      var env = dm(reg['Data de envio']), prev = dm(reg['Previsão de entrega']);
+      var t = 'Olá, tudo bem? Poderia me informar o status do trabalho do paciente ' + (reg['Paciente']||'') + (reg['Material/Serviço'] ? ' (' + reg['Material/Serviço'] + ')' : '') + '?';
+      if (env) t += ' Enviamos em ' + env + '.';
+      if (prev) t += ' A previsão de entrega era ' + prev + '.';
+      t += ' Obrigado!';
+      var url = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + encodeURIComponent(t);
+      try{ mostrarToast('Abrindo o WhatsApp…'); }catch(e){}
+      if (mob()) window.location.href = url; else window.open(url, '_blank');
+    };
+    if (window.gcLabs.length) go(); else window.gcCarregarLabs().then(go);
+  };
+
+  /* ---- botão "Laboratórios" na barra da aba ---- */
+  (function(){
+    var tl = document.querySelector('.module-toolbar .toolbar-left'); if (!tl || document.getElementById('btnLabs')) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'btnLabs'; b.className = 'btn btn-secondary'; b.style.display = 'none'; b.textContent = 'Laboratórios';
+    b.addEventListener('click', function(){ window.gcAbrirLabs(); });
+    tl.appendChild(b);
+  })();
+  var abrirAnt = window.abrirPagina;
+  window.abrirPagina = function(p){
+    var r = abrirAnt.apply(this, arguments);
+    var b = document.getElementById('btnLabs'); if (b) b.style.display = (p === 'Laboratório') ? '' : 'none';
+    if (p === 'Laboratório') window.gcCarregarLabs();
+    return r;
+  };
 })();
 </script><script>/* ===== Celular: agenda compacta, menu, arrastar ===== */
 (function(){
