@@ -1386,8 +1386,19 @@ body[data-aba="Boletos"] .toolbar-left { display: flex; flex-wrap: wrap; align-i
 #gcPerfil .gp-cores button.on { border-color: var(--blue); }
 #gcPerfil .gp-cores i { width: 34px; height: 34px; border-radius: 50%; display: block; }
 @media (min-width: 701px) { #gcPerfil { background: rgba(18,22,28,.5); } #gcPerfil .gp-in { background: var(--cream); min-height: 100%; box-shadow: 0 0 40px rgba(0,0,0,.25); } }
-</style>
-</head>
+/* ===== botões do topo das listas: só ícones, na cor de destaque ===== */
+body .module-toolbar .toolbar-right { display: flex; gap: 8px; width: auto; flex: none; margin-left: auto; }
+body .module-toolbar .toolbar-right .btn { width: 40px; min-width: 40px; max-width: 40px; height: 40px; min-height: 40px; padding: 0; flex: none; font-size: 0; line-height: 0; border: 0; border-radius: 12px; background: var(--blue); color: #fff; display: inline-flex; align-items: center; justify-content: center; box-shadow: none; }
+body .module-toolbar .toolbar-right .btn::before { content: ''; display: block; width: 20px; height: 20px; background: center / contain no-repeat; }
+body .module-toolbar .toolbar-right .btn-secondary::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 9V3h10v6'/%3E%3Crect x='4' y='9' width='16' height='8' rx='2'/%3E%3Cpath d='M7 14h10v7H7z'/%3E%3C/svg%3E"); }
+body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E"); }
+@media (max-width: 700px) {
+  body:not([data-aba="Boletos"]) .module-toolbar { flex-wrap: nowrap; align-items: center; gap: 8px; }
+  body:not([data-aba="Boletos"]) .module-toolbar .toolbar-left { flex: 1 1 0; min-width: 0; width: auto; }
+  body .module-toolbar .toolbar-right { width: auto; flex: none; }
+  body .module-toolbar .toolbar-right > * { flex: none; }
+}
+</style></head>
 <body>
 <div id="gcLogin">
   <div class="gc-card">
@@ -7629,5 +7640,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     new MutationObserver(marca).observe(document.body, {attributes:true, attributeFilter:['data-aba']});
     setInterval(marca, 800);
   })();
+
+  (function(){ var e = document.querySelector('.toolbar-right .btn-secondary'), n = document.getElementById('btnNovoRegistro'); if (e) { e.title = 'Exportar PDF'; e.setAttribute('aria-label','Exportar PDF'); } if (n) { n.title = 'Novo registro'; n.setAttribute('aria-label','Novo registro'); } })();
 })();</script></body>
 </html>
