@@ -1313,6 +1313,28 @@ html[data-tema="escuro"] .modal-overlay { background: rgba(0,0,0,.6); }
 .gp-bn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 700px) { .gc-perfil-btn { display: none !important; } }
 
+/* ===== Boletos: tela limpa (computador e celular) ===== */
+body[data-aba="Boletos"] #boletosResumoBar { display: none !important; }
+.gc-lupa { display: none; }
+body[data-aba="Boletos"] .gc-lupa { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 1px solid var(--border); border-radius: 12px; background: var(--white); color: var(--muted); cursor: pointer; padding: 0; }
+body[data-aba="Boletos"] .gc-lupa.ativo { color: var(--blue); border-color: var(--blue); }
+.gc-lupa svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+body[data-aba="Boletos"] .search-box { display: none; }
+body[data-aba="Boletos"] .search-box.gc-aberta { display: block; flex: 1 1 100%; order: 5; min-width: 0; }
+body[data-aba="Boletos"] #statusFilter { -webkit-appearance: none; appearance: none; width: 40px; min-width: 40px; max-width: 40px; height: 40px; min-height: 40px; padding: 0; flex: none; color: transparent; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2389909B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h18l-7 8.500V19l-4 2v-8.500z'/%3E%3C/svg%3E") center / 19px no-repeat; }
+body[data-aba="Boletos"] #statusFilter.gc-filtrando { border-color: var(--blue); background-color: var(--blue-light); }
+body[data-aba="Boletos"] #statusFilter option { color: #1B2330; }
+html[data-tema="escuro"] body[data-aba="Boletos"] #statusFilter option { color: #E6E9EF; background: #1C222B; }
+body[data-aba="Boletos"] .toolbar-left { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+@media (max-width: 700px) {
+  body[data-aba="Boletos"] .module-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  body[data-aba="Boletos"] .toolbar-left { width: auto; flex: none; }
+  body[data-aba="Boletos"] .toolbar-left:has(.gc-aberta) { width: 100%; }
+  body[data-aba="Boletos"] .search-box.gc-aberta input { width: 100%; box-sizing: border-box; }
+  body[data-aba="Boletos"] .toolbar-right { flex: 1; width: auto; display: flex; gap: 8px; }
+  body[data-aba="Boletos"] .toolbar-right > * { flex: 1 1 auto; }
+}
+
 /* avatar */
 .gp-av { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; flex: none; background: var(--blue); color: #fff; font-weight: 800; }
 .gp-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -7590,6 +7612,22 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     var abertoModal = document.querySelector('.modal-overlay.show, .modal-overlay.active');
     window.__gcVoltando = true; try{ abrirOrig('Agenda'); }finally{ window.__gcVoltando = false; }
   });
-})();
-</script></body>
+
+  /* Boletos: sem faixas no topo; busca vira lupa; filtro de status vira ícone */
+  document.body.setAttribute('data-aba', typeof abaAtual!=='undefined' ? abaAtual : 'Agenda');
+  (function(){
+    var tl = document.getElementById('searchInput').closest('.toolbar-left'); if (!tl || document.getElementById('gcLupa')) return;
+    var bt = document.createElement('button'); bt.type='button'; bt.id='gcLupa'; bt.className='gc-lupa'; bt.setAttribute('aria-label','Buscar');
+    bt.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+    tl.insertBefore(bt, tl.firstChild);
+    var inp = document.getElementById('searchInput'), box = document.querySelector('.search-box'), sel = document.getElementById('statusFilter');
+    function marca(){ bt.classList.toggle('ativo', !!(inp && inp.value)); if (sel) sel.classList.toggle('gc-filtrando', !!sel.value); }
+    bt.addEventListener('click', function(){ var abre = !box.classList.contains('gc-aberta'); box.classList.toggle('gc-aberta', abre); if (abre) setTimeout(function(){ inp.focus(); }, 30); });
+    inp.addEventListener('blur', function(){ if (!inp.value) box.classList.remove('gc-aberta'); marca(); });
+    inp.addEventListener('input', marca);
+    if (sel) sel.addEventListener('change', marca);
+    new MutationObserver(marca).observe(document.body, {attributes:true, attributeFilter:['data-aba']});
+    setInterval(marca, 800);
+  })();
+})();</script></body>
 </html>
