@@ -1152,6 +1152,8 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
 
   /* Microfone e avisos acima da barra */
   .mic-btn { right: 14px !important; bottom: calc(20px + env(safe-area-inset-bottom)) !important; width: 56px; height: 56px; }
+  .mic-btn { background: var(--blue); color: #fff; box-shadow: 0 6px 18px rgba(53,71,97,.35); }
+  .mic-btn.ouvindo { background: var(--red); }
   .toast, .toast.ok, .toast.aviso { left: 12px !important; right: 84px !important; bottom: calc(20px + env(safe-area-inset-bottom)) !important; max-width: none !important; }
   #gcSair { display: none !important; }
 
