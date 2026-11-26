@@ -1377,6 +1377,7 @@ html[data-tema="escuro"] .modal-overlay { background: rgba(0,0,0,.6); }
 
 /* ===== Boletos: tela limpa (computador e celular) ===== */
 body[data-aba="Boletos"] #boletosResumoBar { display: none !important; }
+body.gc-bol-busca #boletosPainel { display: none !important; }
 .gc-lupa { display: none; }
 body[data-aba="Boletos"] .gc-lupa { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 1px solid var(--border); border-radius: 12px; background: var(--white); color: var(--muted); cursor: pointer; padding: 0; }
 body[data-aba="Boletos"] .gc-lupa.ativo { color: var(--blue); border-color: var(--blue); }
@@ -1918,18 +1919,21 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
     if (!/[a-z]/.test(s1) || !/[A-Z]/.test(s1) || !/[0-9]/.test(s1) || !/[^A-Za-z0-9]/.test(s1)) { er.textContent = 'A senha precisa ter letra minúscula, maiúscula, número e símbolo.'; return; }
     if (s1 !== s2) { er.textContent = 'As senhas não são iguais.'; return; }
     b.disabled = true; b.textContent = 'Enviando…';
-    var r = await sb.auth.signUp({ email: email, password: s1, options: { data: { nome: nome } } });
+    var r = {}, det = '';
+    try {
+      var inv = await sb.functions.invoke('criar-conta', { body: { nome: nome, email: email, senha: s1 } });
+      if (inv.error) { det = String(inv.error.message || ''); r.error = { message: det }; }
+      else if (!inv.data || !inv.data.ok) { var c = inv.data && inv.data.erro; det = c ? String(c) + (inv.data.detalhe ? ' ' + inv.data.detalhe : '') : 'sem resposta'; r.error = { codigo: c, message: det }; }
+    } catch (x) { det = String(x && x.message || x); r.error = { message: det }; }
     b.disabled = false; b.textContent = 'Enviar pedido';
     if (r.error) {
-      var m = String(r.error.message || ''); $('gcCadDet').textContent = '(detalhe técnico: ' + m + ')';
-      er.textContent = /already|registered/i.test(m) ? 'Esse e-mail já tem cadastro. Use "Já tenho conta".' : (/email rate limit/i.test(m) ? 'O limite de e-mails do sistema foi atingido. Tente de novo em cerca de 1 hora.' : /rate|many|seconds/i.test(m) ? 'Muitas tentativas. Espere alguns minutos.' : (/password/i.test(m) ? 'Senha fraca. Use uma senha mais forte.' : (/signups? .*disabled|not allowed/i.test(m) ? 'Novos cadastros estão desativados.' : 'Não foi possível enviar o pedido.')));
+      $('gcCadDet').textContent = '(detalhe técnico: ' + det + ')';
+      var cd = r.error.codigo;
+      er.textContent = cd === 'existe' ? 'Esse e-mail já tem cadastro. Use "Já tenho conta".' : cd === 'senha' ? 'Senha fraca. Use pelo menos 12 caracteres com maiúscula, minúscula, número e símbolo.' : cd === 'email' ? 'Digite um e-mail válido.' : cd === 'nome' ? 'Digite seu nome.' : 'Não foi possível enviar o pedido. Tente de novo em instantes.';
       return;
     }
-    try { await sb.auth.signOut(); } catch (e) {}
     $('gcCadSenha').value = ''; $('gcCadSenha2').value = '';
-    $('gcPendTx').textContent = (r.data && r.data.session === null && r.data.user && !r.data.user.email_confirmed_at && !r.data.user.confirmed_at)
-      ? 'Pedido enviado! Confirme seu e-mail pelo link que enviamos e depois aguarde a liberação do administrador.'
-      : 'Pedido enviado! Agora é só aguardar o administrador liberar seu acesso.';
+    $('gcPendTx').textContent = 'Pedido enviado! Agora é só aguardar o administrador liberar seu acesso.';
     mostrar('pendente');
   });
   $('gcSair').addEventListener('click', function () { sair(''); });
@@ -3149,7 +3153,7 @@ return OPCOES[campo] || null;
     try {
       if (Date.now() < gcIaPausaAte || !sb || !sb.functions || String(texto || '').length > 500) return regras();
       const resp = await Promise.race([
-        sb.functions.invoke('interpretar-voz', { body: { texto: String(texto).slice(0, 500), hoje: gcHojeISO(0) } }),
+        sb.functions.invoke('sminterpretar-voz-ts', { body: { texto: String(texto).slice(0, 500), hoje: gcHojeISO(0) } }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), 7000))
       ]);
       const d = resp && resp.data;
@@ -7730,6 +7734,18 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   setInterval(checar, 180000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) checar(); });
   window.addEventListener('focus', checar);
+})();
+
+/* Boletos: ao pesquisar/filtrar, esconde os cartões de meses e mostra só a lista */
+(function(){
+  function marcaBol(){
+    var i = document.getElementById('searchInput'), s = document.getElementById('statusFilter');
+    document.body.classList.toggle('gc-bol-busca', document.body.getAttribute('data-aba')==='Boletos' && !!((i && i.value) || (s && s.value)));
+  }
+  var rt = window.renderizarTabela;
+  if (typeof rt === 'function') window.renderizarTabela = function(){ var r = rt.apply(this, arguments); try { marcaBol(); } catch(e){} return r; };
+  document.addEventListener('input', function(e){ if (e.target && e.target.id==='searchInput') marcaBol(); });
+  document.addEventListener('change', function(e){ if (e.target && e.target.id==='statusFilter') marcaBol(); });
 })();
 </script><script>
 /* ===== Laboratórios: cadastro de contatos (nome + telefone) e WhatsApp no trabalho ===== */
