@@ -1236,6 +1236,11 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   body[data-aba="Pacientes"] #tableWrap :is(th, td) { padding-left: 6px; padding-right: 6px; }
   body[data-aba="Pacientes"] #tableWrap td:nth-child(2) { white-space: nowrap; font-size: 12.5px; }
 
+  /* Pacientes: etiqueta de boletos vai para baixo do nome */
+  body[data-aba="Pacientes"] #tableWrap :is(.gc-fin-th, .gc-fin-td) { display: none; }
+  body[data-aba="Pacientes"] #tableWrap .gc-fin-m { display: block; margin-top: 5px; padding: 2px 9px; font-size: 11px; }
+  body[data-aba="Pacientes"] #tableWrap .gc-fin-m.nada { display: none; }
+
   /* Boletos: cartões */
   body[data-aba="Boletos"] #tableWrap thead { display: none; }
   body[data-aba="Boletos"] #tableWrap table { min-width: 0 !important; width: 100% !important; }
@@ -1473,6 +1478,13 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
 #gcNova button { border: 0; cursor: pointer; font: inherit; border-radius: 999px; }
 #gcNova button[data-a] { background: #fff; color: var(--blue); padding: 6px 14px; }
 #gcNova button[data-f] { background: transparent; color: #fff; padding: 6px 8px; opacity: .8; }
+/* Pacientes: etiqueta de boletos */
+.gc-fin { border: 0; border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.gc-fin.atr { background: #FCE4E4; color: #B93C3C; }
+.gc-fin.abr { background: #FFF1DD; color: #A8620D; }
+.gc-fin.ok { background: #E1F3EA; color: #1E6B49; }
+.gc-fin.nada { background: transparent; color: #9AA3B2; cursor: default; padding-left: 0; }
+.gc-fin-m { display: none; }
 </style>
 <style>#gcLabs{position:fixed;inset:0;z-index:320;background:rgba(15,20,35,.5);display:flex;align-items:center;justify-content:center;padding:14px}
 #gcLabs .gl-box{background:var(--white,#fff);color:var(--text,#2b3a55);border-radius:18px;width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -7746,6 +7758,55 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   if (typeof rt === 'function') window.renderizarTabela = function(){ var r = rt.apply(this, arguments); try { marcaBol(); } catch(e){} return r; };
   document.addEventListener('input', function(e){ if (e.target && e.target.id==='searchInput') marcaBol(); });
   document.addEventListener('change', function(e){ if (e.target && e.target.id==='statusFilter') marcaBol(); });
+})();
+
+/* Pacientes: coluna "Boletos" (Atrasado / A vencer / Em dia / —) */
+(function(){
+  function chave(s){ try { s = semAcento(String(s||'')); } catch(e){ s = String(s||''); } return s.toLowerCase().replace(/\s+/g,' ').trim(); }
+  function resumo(){
+    var mapa = {};
+    (dados['Boletos']||[]).forEach(function(r){
+      if (igual(r['Status'],'Cancelado')) return;
+      var k = chave(r['Paciente']); if (!k) return;
+      var o = mapa[k] || (mapa[k] = {atr:0, abr:0, tot:0});
+      o.tot++;
+      if (boletoEmAberto(r)) { if (boletoAtrasado(r)) o.atr++; else o.abr++; }
+    });
+    return mapa;
+  }
+  function etiqueta(o){
+    if (!o) return {c:'nada', t:'—', tit:'Sem boletos'};
+    if (o.atr) return {c:'atr', t:'Atrasado'+(o.atr>1?' · '+o.atr:''), tit:o.atr+' boleto(s) em atraso'};
+    if (o.abr) return {c:'abr', t:'A vencer', tit:o.abr+' boleto(s) a vencer'};
+    return {c:'ok', t:'Em dia', tit:'Sem boletos em aberto'};
+  }
+  function marcar(){
+    if (typeof abaAtual==='undefined' || abaAtual!=='Pacientes') return;
+    var corpo = document.getElementById('tableBody'), cab = document.querySelector('#tableHead tr'); if (!corpo || !cab) return;
+    if (!cab.querySelector('.gc-fin-th')) {
+      var th = document.createElement('th'); th.className = 'gc-fin-th'; th.textContent = 'Boletos';
+      cab.insertBefore(th, cab.lastElementChild);
+    }
+    var m = resumo();
+    corpo.querySelectorAll('tr').forEach(function(tr){
+      if (tr.dataset.gcFin || tr.cells.length < 3) return;
+      tr.dataset.gcFin = '1';
+      var nome = tr.cells[0].textContent, e = etiqueta(m[chave(nome)]);
+      var mk = function(cls){ var b = document.createElement('button'); b.type='button'; b.className = cls+' gc-fin '+e.c; b.textContent = e.t; b.title = e.tit; b.dataset.nome = nome.trim(); return b; };
+      var td = document.createElement('td'); td.className = 'gc-fin-td'; td.appendChild(mk('gc-fin-pc'));
+      tr.insertBefore(td, tr.lastElementChild);
+      tr.cells[0].appendChild(mk('gc-fin-m'));
+    });
+  }
+  var rt2 = window.renderizarTabela;
+  if (typeof rt2 === 'function') window.renderizarTabela = function(){ var r = rt2.apply(this, arguments); try { marcar(); } catch(e){ console.error(e); } return r; };
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('.gc-fin'); if (!b || b.classList.contains('nada')) return;
+    abrirPagina('Boletos');
+    var i = document.getElementById('searchInput'), box = document.querySelector('.search-box');
+    if (i) { i.value = b.dataset.nome; if (box) box.classList.add('gc-aberta'); }
+    renderizarTabela();
+  });
 })();
 </script><script>
 /* ===== Laboratórios: cadastro de contatos (nome + telefone) e WhatsApp no trabalho ===== */
