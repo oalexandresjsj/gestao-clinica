@@ -7529,7 +7529,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   var base = null, mostrado = false;
   function assinatura(){
     return fetch(location.pathname, { method: 'HEAD', cache: 'no-store' })
-      .then(function(r){ return r.ok ? (r.headers.get('etag') || r.headers.get('last-modified') || null) : null; })
+      .then(function(r){ return r.ok ? (r.headers.get('last-modified') || null) : null; })
       .catch(function(){ return null; });
   }
   function aviso(){
@@ -7538,7 +7538,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     d.innerHTML = '<span>Nova versão disponível</span><button type="button" data-a="1">Atualizar</button><button type="button" data-f="1" aria-label="Fechar">✕</button>';
     d.addEventListener('click', function(e){
       var b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.a) location.reload(); else { d.remove(); setTimeout(function(){ mostrado = false; }, 600000); }
+      if (b.dataset.a) { fetch(location.pathname, { cache: 'reload' }).catch(function(){}).then(function(){ location.reload(); }); } else { d.remove(); setTimeout(function(){ mostrado = false; }, 600000); }
     });
     document.body.appendChild(d);
   }
