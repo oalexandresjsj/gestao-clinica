@@ -1125,10 +1125,10 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   /* Conteúdo */
   .main { padding: 10px 10px calc(96px + env(safe-area-inset-bottom)); margin-left: 0 !important; }
   .top-date, .page-subtitle, #faixaPendencias { display: none !important; }
-  .menu-toggle-btn { display: inline-flex !important; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: #fff; border: 1px solid var(--border); margin-right: 8px; font-size: 18px; }
+  .menu-toggle-btn { display: inline-flex !important; align-items: center; justify-content: center; width: 30px; height: 30px; min-height: 0; border-radius: 9px; background: #fff; border: 1px solid var(--border); margin-right: 8px; font-size: 14px; padding: 0; }
   .topbar-left { display: flex; align-items: center; }
-  .topbar { margin-bottom: 8px; }
-  .page-title { font-size: 20px; }
+  .topbar { margin-bottom: 4px; }
+  .page-title { font-size: 15px; font-weight: 800; }
   .rotina-abas { margin-left: auto; }
 
   /* Botões e campos pensados para o dedo */
@@ -1146,7 +1146,7 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
 
   /* Agenda: um dia por vez, linhas compactas */
   .ag-semana { padding: 0; }
-  .ag-semana .titulo { display: flex; align-items: center; justify-content: space-between; margin: 0 0 2px; font-size: 14px; }
+  .ag-semana .titulo { display: flex; align-items: center; justify-content: center; margin: 0 0 2px; font-size: 14px; }
   .ag-semana .titulo .sub, .ag-semana .bol-chips { display: none !important; }
   .gc-faixa { font-weight: 800; font-size: 14px; color: var(--blue-dark); }
   .gc-seta { min-height: 32px; min-width: 40px; border: 0; background: transparent; font-size: 24px; line-height: 1; color: var(--blue-dark); padding: 0; }
@@ -7111,7 +7111,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   if (typeof origP === 'function') {
     window.renderizarPainelAgenda = function(){ var r = origP.apply(this, arguments); try{
       if (mob()) { var t = document.querySelector('#agendaPainel .titulo');
-        if (t && agendaSemanaIni) t.innerHTML = '<button type="button" class="gc-seta" onclick="mudarSemanaAgenda(-1)" aria-label="Semana anterior">‹</button><span class="gc-faixa">' + formatarData(agendaSemanaIni).slice(0,5) + ' a ' + formatarData(adicionarDiasISO(agendaSemanaIni,6)).slice(0,5) + '</span><button type="button" class="gc-seta" onclick="mudarSemanaAgenda(1)" aria-label="Próxima semana">›</button>'; }
+        if (t && agendaSemanaIni) t.innerHTML = '<span class="gc-faixa">' + formatarData(agendaSemanaIni).slice(0,5) + ' a ' + formatarData(adicionarDiasISO(agendaSemanaIni,6)).slice(0,5) + '</span>'; }
     }catch(e){} return r; };
   }
   /* toque: abrir/fechar detalhes + botões extras */
@@ -7184,6 +7184,20 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   }
   document.addEventListener('touchend', fim); document.addEventListener('touchcancel', fim);
   document.addEventListener('click', function(e){ var it=e.target.closest && e.target.closest('.ag-item'); if (it && it.dataset.passou) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+  /* deslizar fora dos agendamentos = trocar de semana */
+  var S = null;
+  document.addEventListener('touchstart', function(e){
+    S = null;
+    if (!mob() || typeof abaAtual==='undefined' || abaAtual!=='Agenda') return;
+    var t = e.target; if (!t.closest || !t.closest('.main') || t.closest('.ag-item, #gcMenu, .dlg-fundo, .modal-overlay')) return;
+    S = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+  }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (!S) return; var t = e.changedTouches[0], dx = t.clientX-S.x, dy = t.clientY-S.y; S = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)*1.5) return;
+    mudarSemanaAgenda(dx < 0 ? 1 : -1);
+  });
 
   /* menu e botão voltar */
   var ultima = 'Agenda';
