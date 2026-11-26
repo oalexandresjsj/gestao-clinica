@@ -1531,6 +1531,52 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
   #gcTogSide:hover svg{background:rgba(255,255,255,.12);color:#fff}
   .sidebar.collapsed #gcTogSide{justify-content:center;padding:2px 0 10px}
 }
+</style><style>#agLateral { display: none; }
+@media (min-width: 701px) {
+  body[data-aba="Agenda"] #page-module > .panel { display: grid; grid-template-columns: 238px minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); column-gap: 20px; overflow: hidden; }
+  body[data-aba="Agenda"] #agLateral { display: flex; flex-direction: column; gap: 16px; grid-column: 1; grid-row: 1 / 3; min-height: 0; overflow-y: auto; border-right: 1px solid var(--border); padding-right: 16px; }
+  body[data-aba="Agenda"] #agendaPainel { grid-column: 2; grid-row: 1; margin-bottom: 4px; }
+  body[data-aba="Agenda"] #agendaGrade { grid-column: 2; grid-row: 2; max-height: none !important; height: 100% !important; min-height: 0; overflow-y: auto !important; }
+  body[data-aba="Agenda"] #agendaPainel .ag-dias { display: none; }
+  body[data-aba="Agenda"] #agendaGrade > .table-wrap { height: auto; }
+
+  .agnav { display: inline-flex; align-items: center; gap: 6px; }
+  .agnav button { border: 1px solid var(--border); background: #fff; color: var(--blue-dark); border-radius: 999px; height: 32px; min-width: 32px; padding: 0 12px; font: inherit; font-weight: 700; cursor: pointer; }
+  .agnav button:hover { background: var(--blue-light); }
+  .agnav .hj { color: #fff; background: var(--orange); border-color: var(--orange); }
+
+  .agc-topo { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 8px; }
+  .agc-mes { flex: 1; border: 0; background: transparent; font: inherit; font-weight: 800; font-size: 14px; color: var(--blue-dark); cursor: pointer; }
+  .agc-nav { border: 0; background: transparent; width: 28px; height: 28px; border-radius: 50%; font-size: 18px; color: var(--muted); cursor: pointer; }
+  .agc-nav:hover { background: var(--blue-light); color: var(--blue); }
+  .agc-sem, .agc-grade { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .agc-sem span { text-align: center; font-size: 10.5px; font-weight: 700; color: var(--muted); padding: 2px 0 4px; }
+  .agc-dia { position: relative; border: 0; background: transparent; height: 32px; font: inherit; font-size: 12.5px; color: var(--text); cursor: pointer; border-radius: 0; }
+  .agc-dia.fora { color: #B8BDC8; }
+  .agc-dia.sem { background: var(--blue-light); }
+  .agc-dia.sem-i { border-radius: 16px 0 0 16px; }
+  .agc-dia.sem-f { border-radius: 0 16px 16px 0; }
+  .agc-dia:hover { background: #E7EBF3; }
+  .agc-dia.hoje { color: var(--orange); font-weight: 800; box-shadow: inset 0 0 0 2px var(--orange); border-radius: 16px; }
+  .agc-dia.sel { background: var(--blue); color: #fff; border-radius: 16px; font-weight: 800; }
+  .agc-dia i { position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--blue); }
+  .agc-dia.sel i { background: #fff; }
+
+  .agl-titulo { font-weight: 800; font-size: 13px; color: var(--blue-dark); margin-bottom: 6px; }
+  #agLemb { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .agl-item { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; border: 1px solid var(--border); background: #FAF9F7; border-radius: 10px; padding: 7px 10px; font: inherit; cursor: pointer; }
+  .agl-item:hover { background: var(--blue-light); }
+  .agl-item.urg { border-left: 3px solid #C84B4B; }
+  .agl-tag { font-size: 10px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: #A8620D; }
+  .agl-tag.atraso { color: #B93C3C; }
+  .agl-tar .agl-tag { color: var(--blue); }
+  .agl-tx { font-size: 12px; color: var(--text); line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .agl-mais { border: 0; background: transparent; color: var(--blue); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; padding: 2px 4px; }
+  .agl-vazio { font-size: 12px; color: var(--muted); padding: 4px 2px; }
+
+  .ag-grade th .q { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--muted); background: #ECEDEF; border-radius: 9px; padding: 0 6px; line-height: 16px; vertical-align: 1px; }
+  .ag-grade th.sel { color: var(--blue-dark); box-shadow: inset 0 -2px 0 var(--blue); }
+}
 </style><link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4D6080">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -7815,6 +7861,101 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     if (i) { i.value = b.dataset.nome; if (box) box.classList.add('gc-aberta'); }
     renderizarTabela();
   });
+})();
+</script><script>/* Agenda no PC: calendário e lembretes na lateral, navegação ‹ Hoje ›, grade na altura toda */
+(function(){
+  var mq = window.matchMedia('(max-width: 700px)');
+  function pc(){ return !mq.matches; }
+  var calMes = '', ultSem = '', destaque = '';
+  var MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  function pad(n){ return (n<10?'0':'')+n; }
+  function lateral(){
+    var p = document.getElementById('agendaPainel'); if (!p) return null;
+    var panel = p.parentElement, el = document.getElementById('agLateral');
+    if (!el) { el = document.createElement('aside'); el.id = 'agLateral'; panel.insertBefore(el, panel.firstChild); }
+    return el;
+  }
+  function diasComAtendimento(){
+    var s = {};
+    (dados['Agenda']||[]).forEach(function(r){ if (ehDesmarcado(r)) return; var d = converterParaISO(r['Data do atendimento']); if (d) s[d] = (s[d]||0)+1; });
+    return s;
+  }
+  function htmlCal(){
+    var hoje = dataHojeISO(), ini = agendaSemanaIni || inicioSemanaDomingoISO(hoje), fim = adicionarDiasISO(ini, 6);
+    var a = Number(calMes.slice(0,4)), m = Number(calMes.slice(5,7));
+    var primeiro = calMes + '-01', comeco = inicioSemanaDomingoISO(primeiro), usados = diasComAtendimento();
+    var h = '<div class="agc-topo"><button type="button" class="agc-nav" title="Mês anterior" onclick="gcAgMes(-1)">‹</button>' +
+      '<button type="button" class="agc-mes" title="Voltar para hoje" onclick="gcAgHoje()">' + (MESES[m-1].charAt(0).toUpperCase() + MESES[m-1].slice(1)) + ' de ' + a + '</button>' +
+      '<button type="button" class="agc-nav" title="Próximo mês" onclick="gcAgMes(1)">›</button></div>' +
+      '<div class="agc-sem">' + ['D','S','T','Q','Q','S','S'].map(function(x){ return '<span>'+x+'</span>'; }).join('') + '</div><div class="agc-grade">';
+    for (var i = 0; i < 42; i++) {
+      var iso = adicionarDiasISO(comeco, i);
+      if (i >= 35 && Number(iso.slice(5,7)) !== m) break;
+      var cls = 'agc-dia' + (Number(iso.slice(5,7)) !== m ? ' fora' : '') + (iso === hoje ? ' hoje' : '') + (iso >= ini && iso <= fim ? ' sem' : '') + (iso === ini ? ' sem-i' : '') + (iso === fim ? ' sem-f' : '') + (iso === destaque ? ' sel' : '');
+      h += '<button type="button" class="' + cls + '" onclick="gcAgData(\'' + iso + '\')"' + (usados[iso] ? ' title="' + usados[iso] + (usados[iso]===1?' paciente':' pacientes') + '"' : '') + '>' + Number(iso.slice(8)) + (usados[iso] ? '<i></i>' : '') + '</button>';
+    }
+    return h + '</div>';
+  }
+  function htmlLembretes(){
+    var hoje = dataHojeISO(), itens = [];
+    try { itens = calcularAtencao(hoje, { ref: hoje, coberto: new Set() }).itens || []; } catch(e){}
+    var tar = (typeof pendenciasHoje !== 'undefined' && pendenciasHoje.tarefas) || 0;
+    var h = '<div class="agl-titulo">Lembretes de hoje</div>';
+    if (tar) h += '<button type="button" class="agl-item agl-tar" onclick="abrirPagina(\'Rotina\')"><span class="agl-tag">Rotina</span><span class="agl-tx">' + tar + (tar===1?' tarefa do dia':' tarefas do dia') + '</span></button>';
+    itens.slice(0, 12).forEach(function(t){
+      h += '<button type="button" class="agl-item' + (t.urgente ? ' urg' : '') + '" onclick="abrirPagina(\'Rotina\')" title="' + escaparAtributo((t.titulo||'') + (t.descricao ? ' — ' + t.descricao : '')) + '">' +
+        '<span class="agl-tag ' + escaparAtributo(t.tagClass||'') + '">' + escaparHTML(t.tag||'') + '</span><span class="agl-tx">' + escaparHTML(t.titulo||'') + '</span></button>';
+    });
+    if (itens.length > 12) h += '<button type="button" class="agl-mais" onclick="abrirPagina(\'Rotina\')">+ ' + (itens.length-12) + ' na Rotina</button>';
+    if (!tar && !itens.length) h += '<div class="agl-vazio">Nada pendente por hoje.</div>';
+    return h;
+  }
+  function ajustaAltura(){
+    var p = document.getElementById('agendaPainel'); if (!p || !p.offsetParent) return;
+    var panel = p.parentElement;
+    if (!pc()) { panel.style.height = ''; return; }
+    var top = panel.getBoundingClientRect().top;
+    panel.style.height = Math.max(320, window.innerHeight - top - 14) + 'px';
+  }
+  function pos(){
+    if (typeof abaAtual === 'undefined' || abaAtual !== 'Agenda' || !pc()) return;
+    var hoje = dataHojeISO(); if (!agendaSemanaIni) agendaSemanaIni = inicioSemanaDomingoISO(hoje);
+    if (ultSem !== agendaSemanaIni) { ultSem = agendaSemanaIni; calMes = adicionarDiasISO(agendaSemanaIni, 3).slice(0,7); }
+    var p = document.getElementById('agendaPainel');
+    if (p) {
+      var bar = p.querySelector('.ag-semana');
+      if (bar && !bar.dataset.gc) {
+        bar.dataset.gc = '1';
+        var t = bar.querySelector('.titulo'); if (t) t.remove();
+        bar.querySelectorAll('.bol-chip').forEach(function(b){ var o = b.getAttribute('onclick')||''; if (/mudarSemanaAgenda|irParaHojeAgenda|escolherDiaAgenda/.test(o)) b.remove(); });
+        var nav = document.createElement('div'); nav.className = 'agnav';
+        nav.innerHTML = '<button type="button" title="Semana anterior" onclick="gcAgSemana(-1)">‹</button><button type="button" class="hj" onclick="gcAgHoje()">Hoje</button><button type="button" title="Próxima semana" onclick="gcAgSemana(1)">›</button>';
+        bar.insertBefore(nav, bar.firstChild);
+      }
+    }
+    var l = lateral(); if (l) l.innerHTML = '<div id="agCal">' + htmlCal() + '</div><div id="agLemb">' + htmlLembretes() + '</div>';
+    var ths = document.querySelectorAll('#agendaGrade .ag-grade thead th');
+    if (ths.length === 8) {
+      var usados = diasComAtendimento();
+      for (var i = 1; i < 8; i++) {
+        var iso = adicionarDiasISO(agendaSemanaIni, i-1), th = ths[i];
+        th.classList.toggle('sel', iso === destaque && iso !== hoje);
+        if (!th.querySelector('.q') && usados[iso]) { var q = document.createElement('span'); q.className = 'q'; q.textContent = usados[iso]; th.appendChild(q); }
+      }
+    }
+    ajustaAltura();
+  }
+  ['renderizarPainelAgenda','renderizarAgendaGrade'].forEach(function(n){
+    var o = window[n]; if (typeof o !== 'function') return;
+    window[n] = function(){ var r = o.apply(this, arguments); try { pos(); } catch(e){ console.error(e); } return r; };
+  });
+  var af = window.atualizarFaixaPendencias;
+  if (typeof af === 'function') window.atualizarFaixaPendencias = function(){ var r = af.apply(this, arguments); try { pos(); setTimeout(ajustaAltura, 0); } catch(e){} return r; };
+  window.addEventListener('resize', function(){ try { ajustaAltura(); } catch(e){} });
+  window.gcAgSemana = function(d){ mudarSemanaAgenda(d); };
+  window.gcAgHoje = function(){ var h = dataHojeISO(); agendaSemanaIni = inicioSemanaDomingoISO(h); agendaDiaSel = ''; destaque = h; ultSem = ''; renderizarTabela(); };
+  window.gcAgData = function(iso){ agendaSemanaIni = inicioSemanaDomingoISO(iso); agendaDiaSel = ''; destaque = iso; ultSem = agendaSemanaIni; renderizarTabela(); };
+  window.gcAgMes = function(d){ var a = Number(calMes.slice(0,4)), m = Number(calMes.slice(5,7)) + d; if (m < 1) { m = 12; a--; } if (m > 12) { m = 1; a++; } calMes = a + '-' + pad(m); pos(); };
 })();
 </script><script>
 /* ===== Laboratórios: cadastro de contatos (nome + telefone) e WhatsApp no trabalho ===== */
