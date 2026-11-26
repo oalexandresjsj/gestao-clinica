@@ -1236,6 +1236,21 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   body[data-aba="Pacientes"] #tableWrap :is(th, td) { padding-left: 6px; padding-right: 6px; }
   body[data-aba="Pacientes"] #tableWrap td:nth-child(2) { white-space: nowrap; font-size: 12.5px; }
 
+  /* Boletos: cartões */
+  body[data-aba="Boletos"] #tableWrap thead { display: none; }
+  body[data-aba="Boletos"] #tableWrap table { min-width: 0 !important; width: 100% !important; }
+  body[data-aba="Boletos"] #tableWrap td.gc-bl-td { padding: 10px 8px; max-width: none; }
+  .gc-bl { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .gc-bl .bl-main { min-width: 0; flex: 1; }
+  .gc-bl .bl-nome { font-weight: 700; font-size: 13.5px; color: var(--blue-dark); }
+  .gc-bl .bl-lin { display: flex; gap: 10px; align-items: baseline; margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+  .gc-bl .bl-v { font-weight: 800; color: #1F2937; }
+  .gc-bl .bl-et { margin-top: 2px; border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 700; background: #FFF1DD; color: #A8620D; }
+  .gc-bl .bl-et.atraso { background: #FCE4E4; color: #B93C3C; }
+  .gc-bl .bl-et.ok { background: #E1F3EA; color: #1E6B49; }
+  .gc-bl .actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .gc-bl .actions .icon-btn { width: 34px; height: 34px; min-width: 34px; min-height: 34px; }
+
   /* Pós-operatório: cartões compactos */
   body[data-aba="Pós-operatório"] #tableWrap thead { display: none; }
   body[data-aba="Pós-operatório"] #tableWrap table { min-width: 0 !important; width: 100% !important; }
@@ -1288,6 +1303,7 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
 
   /* travado na tela visível: sem rolagem da página, sem faixa sobrando embaixo (só o conteúdo rola por dentro) */
   body:is([data-aba="Pacientes"],[data-aba="Pós-operatório"],[data-aba="Laboratório"],[data-aba="Orçamentos"],[data-aba="Indicações"],[data-aba="Rotina"],[data-aba="Boletos"],[data-aba="Notas"]) .main, body.gc-ag .main { position: fixed; inset: 0; height: auto !important; min-height: 0 !important; overflow: hidden; }
+  body.gc-bol-busca #boletosPainel { display: none !important; }
   body:is([data-aba="Boletos"],[data-aba="Notas"]) { height: 100dvh; overflow: hidden; }
   body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active { min-height: 0 !important; overflow: hidden; }
   body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active > .panel { min-height: 0 !important; overflow-x: hidden !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch; flex: 1 1 0; }
@@ -8132,7 +8148,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     bt.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
     tl.insertBefore(bt, tl.firstChild);
     var inp = document.getElementById('searchInput'), box = document.querySelector('.search-box'), sel = document.getElementById('statusFilter');
-    function marca(){ bt.classList.toggle('ativo', !!(inp && inp.value)); if (sel) sel.classList.toggle('gc-filtrando', !!sel.value); }
+    function marca(){ bt.classList.toggle('ativo', !!(inp && inp.value)); if (sel) sel.classList.toggle('gc-filtrando', !!sel.value); document.body.classList.toggle('gc-bol-busca', document.body.getAttribute('data-aba')==='Boletos' && !!((inp && inp.value) || (sel && sel.value))); }
     bt.addEventListener('click', function(){ var abre = !box.classList.contains('gc-aberta'); box.classList.toggle('gc-aberta', abre); if (abre) setTimeout(function(){ inp.focus(); }, 30); });
     inp.addEventListener('blur', function(){ if (!inp.value) box.classList.remove('gc-aberta'); marca(); });
     inp.addEventListener('input', marca);
@@ -8169,8 +8185,34 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
         '<button type="button" class="icon-btn po-edit" title="Editar" onclick="abrirModal(\''+escaparAtributo(id)+'\')">✎</button></div></td>';
     });
   }
+  /* Boletos: cartão com vencimento, dias de atraso, valor e status */
+  function transformarBol(){
+    if (!mob() || typeof abaAtual==='undefined' || abaAtual!=='Boletos') return;
+    var corpo = document.getElementById('tableBody'); if (!corpo) return;
+    var hoje = dataHojeISO();
+    corpo.querySelectorAll('tr').forEach(function(tr){
+      if (tr.dataset.gc) return;
+      var ac = tr.querySelector('.actions'); if (!ac) return;
+      var ed = ac.querySelector('.icon-btn[title^="Preencher"]'); if (!ed) return;
+      var m = /abrirModal\('([^']*)'/.exec(ed.getAttribute('onclick')||''); if (!m) return;
+      var id = m[1], r = (dados['Boletos']||[]).find(function(x){ return String(x.ID)===String(id); }); if (!r) return;
+      var venc = converterParaISO(r['Vencimento']), st = String(r['Status']||'');
+      var atr = false; try { atr = boletoAtrasado(r); } catch(e){}
+      var dias = (atr && venc) ? diasEntre(venc, hoje) : 0;
+      var cls = /pago/i.test(st) ? 'ok' : (atr ? 'atraso' : '');
+      var rot = atr ? 'Atrasado' : (st || 'Pendente');
+      var val = r['Valor'] ? formatarMoeda(parseNumero(r['Valor'])) : '—';
+      tr.dataset.gc = '1';
+      var td = document.createElement('td'); td.colSpan = 9; td.className = 'gc-bl-td';
+      td.innerHTML = '<div class="gc-bl"><div class="bl-main"><div class="bl-nome">'+escaparHTML(String(r['Paciente']||''))+'</div>' +
+        '<div class="bl-lin"><span class="bl-v">'+val+'</span><span class="bl-d">Venc. '+(venc?formatarData(venc):'—')+'</span></div>' +
+        '<div class="bl-lin"><span class="bl-et '+cls+'">'+escaparHTML(rot)+(dias?' · '+dias+(dias===1?' dia':' dias'):'')+'</span></div></div></div>';
+      td.firstChild.appendChild(ac);
+      tr.innerHTML = ''; tr.appendChild(td);
+    });
+  }
   var rtOrig = window.renderizarTabela;
-  if (typeof rtOrig === 'function') window.renderizarTabela = function(){ var r = rtOrig.apply(this, arguments); try { transformarPos(); } catch(e){ console.error(e); } return r; };
+  if (typeof rtOrig === 'function') window.renderizarTabela = function(){ var r = rtOrig.apply(this, arguments); try { transformarBol(); } catch(e){ console.error(e); } try { transformarPos(); } catch(e){ console.error(e); } return r; };
   document.addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('.po-et'); if (!b || !mob() || b.disabled) return;
     var id = b.dataset.id, r = (dados['Pós-operatório']||[]).find(function(x){ return String(x.ID)===String(id); }); if (!r) return;
