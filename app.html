@@ -1297,6 +1297,8 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   body.gc-drawer .sidebar .brand{padding:4px 8px 22px!important}
   body.gc-drawer .sidebar .nav-btn{justify-content:flex-start!important;padding:13px 14px!important}
   body.gc-drawer .sidebar .gc-perfil-btn{display:flex!important}
+  #gcGavSair{display:none;margin:auto 6px 0;padding:13px 14px;border:0;border-radius:12px;background:rgba(255,255,255,.1);color:#fff;font:700 14px 'Nunito',Arial,sans-serif;text-align:left}
+  body.gc-drawer #gcGavSair{display:block}
   #gcGavetaBg{position:fixed;inset:0;z-index:255;background:rgba(15,20,35,.5);animation:gcGavBg .22s ease-out}
   @keyframes gcGav{from{transform:translateX(-100%)}to{transform:none}}
   @keyframes gcGavBg{from{opacity:0}to{opacity:1}}
@@ -7385,7 +7387,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     b.innerHTML = avatar('gp-mini') + '<span class="gp-bn">'+esc(nomeExibido())+'</span>';
   }
   var sb = document.getElementById('sidebar');
-  if (sb) { var b = document.createElement('button'); b.type='button'; b.id='gcPerfilBtn'; b.className='gc-perfil-btn'; b.addEventListener('click', function(){ abrir(); }); sb.appendChild(b); atualizarBotao(); }
+  /* botão de perfil removido do menu (pedido do usuário) */
 
   /* ----- telas ----- */
   var ic = {
@@ -7827,6 +7829,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     bg.addEventListener('click', function(){ gaveta(false); });
     document.body.appendChild(bg);
     document.body.classList.add('gc-drawer');
+    if (!document.getElementById('gcGavSair')) { var sr = document.createElement('button'); sr.type='button'; sr.id='gcGavSair'; sr.textContent='Sair'; sr.addEventListener('click', function(){ gaveta(false); var s=document.getElementById('gcSair'); if (s) s.click(); }); sb.appendChild(sr); }
     sb.onclick = function(e){ if (e.target.closest('.nav-btn, .gc-perfil-btn, #gcSair')) gaveta(false); };
   }
   window.gcFecharGaveta = function(){ gaveta(false); };
