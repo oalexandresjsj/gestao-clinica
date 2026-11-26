@@ -1289,7 +1289,7 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   body:is([data-aba="Pacientes"],[data-aba="Pós-operatório"],[data-aba="Laboratório"],[data-aba="Orçamentos"],[data-aba="Indicações"],[data-aba="Rotina"],[data-aba="Boletos"],[data-aba="Notas"]) .main, body.gc-ag .main { position: fixed; inset: 0; height: auto !important; min-height: 0 !important; overflow: hidden; }
   body:is([data-aba="Boletos"],[data-aba="Notas"]) { height: 100dvh; overflow: hidden; }
   body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active { min-height: 0 !important; overflow: hidden; }
-  body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active > .panel { min-height: 0 !important; overflow-y: auto; flex: 1 1 0; }
+  body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active > .panel { min-height: 0 !important; overflow-x: hidden !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch; flex: 1 1 0; }
 }
 </style>
 <style id="gcPrefs">
@@ -7663,8 +7663,8 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     if (!texto) return copiarOrig.apply(this, arguments);
     if (!tel) { mostrarToast('Esse paciente não tem telefone cadastrado. Copiei a mensagem.'); return copiarOrig.apply(this, arguments); }
     // abre o WhatsApp direto na conversa, com a mensagem pronta (sem copiar)
-    var a = document.createElement('a'); a.href = 'https://wa.me/' + tel + '?text=' + encodeURIComponent(texto); a.target = '_blank'; a.rel = 'noopener';
-    document.body.appendChild(a); a.click(); a.remove();
+    mostrarToast('Abrindo o WhatsApp…');
+    window.location.href = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + encodeURIComponent(texto);
     var nome = reg ? primeiroNome(reg['Paciente'] || '') : 'o paciente';
     setTimeout(function(){
       if (aba === 'Agenda') {
@@ -7674,7 +7674,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
       }
       if (aba === 'Orçamentos') { perguntarSimNao('Mensagem enviada?', 'Você já enviou a mensagem ao paciente? Se sim, registro o contato feito e agendo o próximo.', function(){ executarAlternancia(aba, id, 'contatoOrcamento'); }, null); return; }
       perguntarSimNao('Mensagem enviada?', 'Você já enviou a mensagem ao paciente? Se sim, vamos registrar que ele foi avisado.', function(){ executarAlternancia(aba, id, 'contatoBoletoFeito'); }, null);
-    }, 700);
+    }, 1200);
   };
 
   /* no celular os botões de "copiar mensagem" passam a dizer WhatsApp */
