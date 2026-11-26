@@ -3107,8 +3107,49 @@ return OPCOES[campo] || null;
     if (gcModalDaFila) { gcModalDaFila = false; gcFilaAtiva = false; setTimeout(gcProximaRevisao, 350); }
   };
 
+  /* ===== IA (opcional): entende a frase falada e devolve ordens no formato que o app já executa ===== */
+  let gcIaPausaAte = 0;
+  const gcDDMM = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '')); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
+  const gcHHMM = (h) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return m ? m[1].padStart(2, '0') + ':' + m[2] : ''; };
+  function gcOrdemDaIA(o) {
+    const nome = String((o && o.nome) || '').replace(/[,.;]/g, ' ').replace(/\s+/g, ' ').trim();
+    const proc = String((o && o.procedimento) || '').replace(/[,.;]/g, ' ').replace(/\s+/g, ' ').trim();
+    const d = gcDDMM(o && o.data), h = gcHHMM(o && o.hora);
+    switch (o && o.acao) {
+      case 'agendar': {
+        if (!nome || !d || !h) return null;
+        const dur = Number(o.duracao_min) > 30 ? ' por ' + Math.round(Number(o.duracao_min)) + ' minutos' : '';
+        return 'agendar ' + nome + ' ' + d + ' às ' + h + (proc ? ' ' + proc : '') + dur;
+      }
+      case 'remarcar': return (nome && (d || h)) ? 'remarcar ' + nome + ' para ' + (d ? d + ' ' : '') + (h ? 'às ' + h : '') : null;
+      case 'desmarcar': return nome ? 'desmarcar ' + nome + (d ? ' ' + d : '') : null;
+      case 'posoperatorio': { const dc = gcDDMM(o.data_cirurgia); return (nome && dc) ? 'pós-operatório ' + nome + ', ' + proc + ', dia ' + dc : null; }
+      default: return null;
+    }
+  }
+  async function gcOrdensComIA(texto) {
+    const regras = () => gcDividirOrdens(texto);
+    const sb = window.gcSb;
+    try {
+      if (Date.now() < gcIaPausaAte || !sb || !sb.functions || String(texto || '').length > 500) return regras();
+      const resp = await Promise.race([
+        sb.functions.invoke('interpretar-voz', { body: { texto: String(texto).slice(0, 500), hoje: gcHojeISO(0) } }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), 7000))
+      ]);
+      const d = resp && resp.data;
+      if (!d || d.ok !== true || !Array.isArray(d.ordens) || !d.ordens.length || d.ordens.length > 6) throw new Error('resposta');
+      if (d.uso) console.log('IA tokens:', d.uso.entrada, '+', d.uso.saida);
+      const lista = d.ordens.map(gcOrdemDaIA);
+      if (lista.some(x => !x)) return regras();   /* nota, faltou dado ou não entendeu: usa o jeito de sempre */
+      return lista;
+    } catch (e) {
+      console.warn("IA indisponível:", e && e.message); gcIaPausaAte = Date.now() + 120000;   /* IA fora do ar: usa as regras por 2 min */
+      return regras();
+    }
+  }
+
   async function gcProcessarFala(textoBruto) {
-    const ordens = gcDividirOrdens(textoBruto);
+    const ordens = await gcOrdensComIA(textoBruto);
     if (!ordens.length) return;
     const ok = [], rev = [];
     for (const o of ordens) {
