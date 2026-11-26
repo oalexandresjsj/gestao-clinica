@@ -2805,11 +2805,10 @@ return OPCOES[campo] || null;
       if (!res) return { rev: 'Não achei esse paciente para ' + pedido.acao + '.', original: original };
       const est = res.campos['Agendamento'];
       if (['Agendado', 'Desmarcado', 'Remarcado'].indexOf(est) >= 0) return { ok: gcPrimeiraFrase(res.mensagem) };
-      const msgVoz = String(res.mensagem || '').replace(/\s*Ex\.:.*$/, '').replace(/\s*Edite a nota e toque em "Tentar de novo"\./, ' Complete no formulário.').replace(/\s*Escreva o nome completo e toque em "Tentar de novo"\./, ' Complete o nome no formulário.').trim();
       if (pedido.acao === 'agendar') {
-        return { rev: msgVoz, original: original, abrir: { aba: 'Agenda', pre: { 'Paciente': String(pedido.nome || '').toUpperCase(), 'Data do atendimento': p.data || '', 'Horário': p.hora ? p.hora.replace('h', ':') : '', 'Procedimento': pedido.procedimento || '', 'Duração': gcRotuloDuracaoSrv(pedido.duracao) } } };
+        return { rev: res.mensagem, original: original, abrir: { aba: 'Agenda', pre: { 'Paciente': String(pedido.nome || '').toUpperCase(), 'Data do atendimento': p.data || '', 'Horário': p.hora ? p.hora.replace('h', ':') : '', 'Procedimento': pedido.procedimento || '', 'Duração': gcRotuloDuracaoSrv(pedido.duracao) } } };
       }
-      return { rev: msgVoz, original: original };
+      return { rev: res.mensagem, original: original };
     }
 
     // 2) Status do paciente: "Maria confirmou / faltou / compareceu / cancelou"
@@ -2817,6 +2816,54 @@ return OPCOES[campo] || null;
     if (ms && gcTokensNomeSrv(ms[1]).length >= 1 && ms[1].trim().split(/\s+/).length <= 5 && !/[,;]/.test(ms[1])) {
       const r = await gcStatusPaciente(ms[1].trim(), GC_STATUS_PALAVRA[ms[2].toLowerCase()], p.data);
       return r.ok ? r : { rev: r.rev, original: original };
+    }
+
+    // 3a) Pós-operatório com a palavra-chave: "Pós-operatório Maria Souza, implante, dia 27" (procedimento opcional)
+    const mk = /^\s*p[óo]s[-\s]?operat[óo]rio\b[\s,.:;-]*(?:d[aeo]s?\s+)?(.*)$/i.exec(texto);
+    if (mk) {
+      let resto = mk[1].replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, '');
+      let nome = '', proc = '';
+      const vir = resto.indexOf(',');
+      if (vir > 0) { nome = resto.slice(0, vir); proc = resto.slice(vir + 1); }
+      else {
+        const pal = resto.split(/\s+/).filter(Boolean);
+        let corte = -1;
+        // 1º: o nome completo de algum paciente cadastrado no começo da frase (o mais longo vence)
+        const listaP = gcOk(await window.gcSb.from('pacientes').select('paciente').limit(5000), 'Pacientes').data || [];
+        const chv = pal.map(w => gcTokensNomeSrv(w).join(''));
+        let melhor = 0;
+        for (const q of listaP) {
+          const pk = gcTokensNomeSrv(q.paciente);
+          if (!pk.length || pk.length > pal.length || pk.length <= melhor) continue;
+          let igual = true;
+          for (let i = 0; i < pk.length; i++) if (chv[i] !== pk[i]) { igual = false; break; }
+          if (igual) melhor = pk.length;
+        }
+        if (melhor) corte = melhor;
+        for (let k = 1; k <= pal.length && corte < 0; k++) {
+          const r = await gcLocalizarPaciente(pal.slice(0, k).join(' '));
+          if (r.tipo === 'existe') corte = k;
+        }
+        if (corte < 0) {
+          const i = pal.findIndex((w, ix) => ix > 0 && /^(cirurgia|cirurgias|implantes?|exodontias?|extra[çc][ãa]o|extra[çc][õo]es|sisos?|enxertos?|mini[-\s]?pilar|lente|faceta|protocolo|bichectomia|gengivoplastia|frenectomia)$/i.test(w));
+          corte = i > 0 ? i : pal.length;
+        }
+        nome = pal.slice(0, corte).join(' '); proc = pal.slice(corte).join(' ');
+      }
+      nome = nome.replace(/[,\s]+$/, '').trim();
+      proc = proc.replace(/^[\s,.;:-]*(?:cirurgia\s+)?(?:d[aeo]s?\s+)?/i, '').replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, '');
+      proc = proc ? gcCap(proc) : '';
+      const pre = { 'Paciente': nome.toUpperCase(), 'Procedimento': proc, 'Data da cirurgia': p.data || '' };
+      const abrir = { aba: 'Pós-operatório', pre: pre };
+      if (!nome) return { rev: 'Não entendi o nome do paciente do pós-operatório.', original: original, abrir: abrir };
+      if (!p.data) return { rev: 'Faltou a data da cirurgia de ' + nome.toUpperCase() + '.', original: original, abrir: abrir };
+      const pac = await gcLocalizarPaciente(nome);
+      if (pac.tipo === 'ambiguo') return { rev: 'Há mais de um paciente parecido com "' + nome + '": ' + pac.opcoes.join(', ') + '. Complete o nome.', original: original, abrir: abrir };
+      if (pac.tipo === 'novo') return { rev: '"' + nome.toUpperCase() + '" não está na lista de Pacientes. Confira o nome.', original: original, abrir: abrir };
+      pre['Paciente'] = String(pac.paciente.paciente).trim().toUpperCase();
+      const res = await gcAdicionarVarios('Pós-operatório', [{ 'Paciente': pre['Paciente'], 'Procedimento': proc, 'Data da cirurgia': p.data }]);
+      const lin = gcOk(await window.gcSb.from('pos_operatorio').select('data_1_contato,data_2_contato').eq('id', res.ids[0]).maybeSingle(), 'Pós-operatório').data || {};
+      return { ok: 'Pós-operatório: ' + pre['Paciente'] + (proc ? ', ' + proc.toLowerCase() : '') + ', cirurgia ' + gcDataCurta(p.data) + '. Contatos: ' + gcDataCurta(lin.data_1_contato) + ' e ' + gcDataCurta(lin.data_2_contato) };
     }
 
     // 3) Pós-operatório: "Maria, cirurgia de implante, dia 27"
@@ -2925,6 +2972,7 @@ return OPCOES[campo] || null;
     gcProximaRevisao();
   }
 
+  window.gcProcessarFala = gcProcessarFala;
   window.addEventListener('message', (e) => {
     try {
       if (e.origin !== GC_ORIGEM_MIC || !janelaMic || e.source !== janelaMic) return;
