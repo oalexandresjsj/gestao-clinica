@@ -1636,7 +1636,7 @@ return OPCOES[campo] || null;
   // ===== Camada de dados: Supabase (substitui o Apps Script / planilha) =====
   const GC_MAPA = {"Pacientes": ["pacientes", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["telefone", "Telefone", "t"], ["data_nascimento", "Data de nascimento", "d"], ["observacoes", "Observações", "t"]]], "Agenda": ["agenda", [["id", "ID", "t"], ["data_atendimento", "Data do atendimento", "d"], ["horario", "Horário", "h"], ["paciente", "Paciente", "t"], ["telefone", "Telefone", "t"], ["procedimento", "Procedimento", "t"], ["status", "Status", "t"], ["observacoes", "Observações", "t"], ["duracao", "Duração", "t"], ["desmarcado_em", "Desmarcado em", "d"]]], "Boletos": ["boletos", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["valor", "Valor", "n"], ["vencimento", "Vencimento", "d"], ["status", "Status", "t"], ["ultimo_contato", "Último contato", "d"], ["promessa_pagamento", "Promessa de pagamento", "d"], ["proxima_cobranca", "Próxima cobrança", "d"], ["data_pagamento", "Data do pagamento", "d"], ["observacoes", "Observações", "t"], ["retorno_paciente", "Retorno do paciente", "t"]]], "Pós-operatório": ["pos_operatorio", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["procedimento", "Procedimento", "t"], ["data_cirurgia", "Data da cirurgia", "d"], ["data_1_contato", "Data do 1º contato", "d"], ["status_1_contato", "Status do 1º contato", "t"], ["data_2_contato", "Data do 2º contato", "d"], ["status_2_contato", "Status do 2º contato", "t"], ["retorno_agendado", "Retorno agendado?", "t"]]], "Laboratório": ["laboratorio", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["material_servico", "Material/Serviço", "t"], ["laboratorio", "Laboratório", "t"], ["data_envio", "Data de envio", "d"], ["previsao_entrega", "Previsão de entrega", "d"], ["data_recebimento", "Data de recebimento", "d"], ["status", "Status", "t"], ["observacoes", "Observações", "t"]]], "Orçamentos": ["orcamentos", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["telefone", "Telefone", "t"], ["data_avaliacao", "Data da avaliação", "d"], ["contatos_feitos", "Contatos feitos", "t"], ["valor_orcamento", "Valor do orçamento", "n"], ["tratamento", "Tratamento", "t"], ["status", "Status", "t"], ["objecao_paciente", "Objeção do paciente", "t"], ["ultimo_contato", "Último contato", "d"], ["proximo_contato", "Próximo contato", "d"], ["etapa_followup", "Etapa do follow-up", "t"], ["resultado", "Resultado", "t"], ["observacoes", "Observações", "t"]]], "Indicações": ["indicacoes", [["id", "ID", "t"], ["paciente", "Paciente", "t"], ["status", "Status", "t"], ["data_contato", "Data do contato", "d"], ["indicado", "Indicado", "t"], ["telefone_indicado", "Telefone do indicado", "t"], ["compareceu", "Compareceu?", "t"], ["fechou", "Fechou?", "t"], ["valor_tratamento", "Valor do tratamento", "n"], ["comissao", "Comissão (1%)", "n"], ["observacoes", "Observações", "t"]]], "Notas": ["notas", [["id", "ID", "t"], ["nota", "Nota", "t"], ["data", "Data", "d"], ["horario", "Horário", "h"], ["status", "Status", "t"], ["cor", "Cor", "t"], ["agendamento", "Agendamento", "t"], ["aviso", "Aviso", "t"], ["agenda_id", "Agenda ID", "t"], ["posop_id", "Pós-op ID", "t"]]], "Rotina": ["rotina", [["id", "ID", "t"], ["tarefa", "Tarefa", "t"], ["frequencia", "Frequência", "t"], ["dia_programado", "Dia programado", "t"], ["data_execucao", "Data de execução", "d"], ["prazo", "Prazo", "d"], ["desmarcado_em", "Desmarcado em", "d"], ["status", "Status", "t"], ["observacoes", "Observações", "t"]]]};
   const GC_MAIUSC = ['Paciente', 'Indicado', 'Material/Serviço', 'Laboratório'];
-  const GC_TEXTO_CURTO = 'Nota';
+
 
   function gcHojeISO(deslocDias) {
     const d = new Date(Date.now() + (deslocDias || 0) * 86400000);
@@ -1932,17 +1932,351 @@ return OPCOES[campo] || null;
     return { sucesso: true };
   }
 
-  // Nota simples (o agendamento automático por texto ainda não foi migrado)
-  async function gcCriarNota(campos) {
+  const gcPROCEDIMENTOS_CHAVE_SRV = ['avaliacao', 'reavaliacao', 'limpeza', 'consulta', 'retorno', 'revisao', 'implante', 'extracao', 'canal', 'clareamento', 'restauracao', 'manutencao', 'profilaxia', 'ortodontia', 'aparelho', 'protese', 'faceta', 'facetas', 'cirurgia', 'exodontia', 'raspagem', 'moldagem', 'orcamento', 'urgencia', 'instalacao', 'cimentacao', 'prova', 'ajuste', 'exame', 'radiografia', 'tratamento'];
+  const gcTURNOS_PADRAO_SRV = { M: { ini: '08:00', fim: '12:30' }, T: { ini: '12:30', fim: '18:00' }, N: { ini: '18:00', fim: '22:30' } };
+  const gcDIAS_ESCALA_PADRAO_SRV = { 0: [], 1: ['M'], 2: ['N'], 3: [], 4: ['T', 'N'], 5: ['M', 'N'], 6: [] };
+  const gcNOMES_DIA_SRV = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  const gcVAGAS_POR_HORARIO = 2; // no máximo 2 pacientes por bloco de 30 min (15 min para cada)
+  function gcSemAcentoSrv(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
+  function gcTokensNomeSrv(n) {
+    return String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z\s]/g, ' ')
+      .split(/\s+/).filter(t => t && ['DE', 'DA', 'DO', 'DOS', 'DAS', 'E'].indexOf(t) < 0);
+  }
+
+  function gcMinutosSrv(hhmm) {
+    const m = String(hhmm || '').match(/(\d{1,2})\s*[:hH]\s*(\d{2})?/);
+    return m ? Number(m[1]) * 60 + Number(m[2] || 0) : -1;
+  }
+
+  function gcHoraSrv(minutos) {
+    return String(Math.floor(minutos / 60)).padStart(2, '0') + 'h' + String(minutos % 60).padStart(2, '0');
+  }
+
+  function gcHoraAmigavelSrv(minutos) {
+    const mm = minutos % 60;
+    return Math.floor(minutos / 60) + 'h' + (mm ? String(mm).padStart(2, '0') : '');
+  }
+
+  const gcNUM_DURACAO_SRV = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, 'três': 3, quatro: 4 };
+  const gcRE_NUM_DUR = '(\\d{1,2}|um|uma|dois|duas|tr[eê]s|quatro)';
+  const gcRE_DURACAO_SRV = [
+    // "por 1 hora", "durante 1h30", "duração de 2 horas", "duração 1 hora e meia"
+    new RegExp('\\b(?:por|durante|com\\s+dura[cç][aã]o\\s+de|dura[cç][aã]o\\s+de|dura[cç][aã]o)\\s+' + gcRE_NUM_DUR + '\\s*(?:horas?|hs|h)(?:\\s*(?:e\\s*)?(\\d{2}|meia))?(?![\\dA-Za-z])', 'i'),
+    // "1 hora de duração"
+    new RegExp('\\b' + gcRE_NUM_DUR + '\\s*(?:horas?|hs|h)(?:\\s*(?:e\\s*)?(\\d{2}|meia))?\\s+de\\s+dura[cç][aã]o\\b', 'i'),
+    // "por 90 minutos"
+    /\b(?:por|durante|dura[cç][aã]o\s+de|dura[cç][aã]o)\s+(\d{2,3})\s*(?:min(?:utos?)?)\b/i,
+    // "por meia hora"
+    /\b(?:por|durante)\s+(meia)\s+hora\b/i
+  ];
+
+  // Devolve { minutos, ini, fim } com o trecho da frase que fala da duração, ou null
+  function gcAcharDuracaoSrv(texto) {
+    const t = String(texto || '');
+    for (let i = 0; i < gcRE_DURACAO_SRV.length; i++) {
+      const m = gcRE_DURACAO_SRV[i].exec(t);
+      if (!m) continue;
+      let min = 0;
+      if (i === 2) min = Number(m[1]);
+      else if (i === 3) min = 30;
+      else {
+        const k = gcSemAcentoSrv(m[1]);
+        const h = gcNUM_DURACAO_SRV[k] || Number(k);
+        const ex = m[2] ? (m[2] === 'meia' ? 30 : Number(m[2])) : 0;
+        min = h * 60 + ex;
+      }
+      if (min > 0 && min <= 480) return { minutos: min, ini: m.index, fim: m.index + m[0].length };
+    }
+    return null;
+  }
+
+  // "1 hora", "1h30", "2 horas", "90 min" -> minutos (0 se vazio/padrão)
+  function gcDuracaoEmMinutosSrv(valor) {
+    const v = gcSemAcentoSrv(String(valor == null ? '' : valor)).trim();
+    if (!v) return 0;
+    let m = /^(\d+)\s*h\s*(\d{2})?/.exec(v);
+    if (m) return Number(m[1]) * 60 + Number(m[2] || 0);
+    m = /^(\d+)\s*(?:horas?)(?:\s*e\s*(meia|\d{2}))?/.exec(v);
+    if (m) return Number(m[1]) * 60 + (m[2] ? (m[2] === 'meia' ? 30 : Number(m[2])) : 0);
+    m = /^(\d+)\s*(?:min|m)/.exec(v);
+    if (m) return Number(m[1]);
+    m = /^(\d+)$/.exec(v);
+    return m ? Number(m[1]) : 0;
+  }
+
+  function gcRotuloDuracaoSrv(min) {
+    if (!min || min <= 30) return '';
+    const h = Math.floor(min / 60), mm = min % 60;
+    if (h === 0) return mm + ' min';
+    if (mm === 0) return h === 1 ? '1 hora' : h + ' horas';
+    return h + 'h' + String(mm).padStart(2, '0');
+  }
+
+  function gcBlocosDaDuracaoSrv(min) { return min > 30 ? Math.ceil(min / 30) : 1; }
+
+  // Reconhece "agendar / marcar ... <paciente> [procedimento]" e devolve { nome, procedimento } ou null
+  function gcExtrairPedidoAgendamento(texto) {
+    const dur = gcAcharDuracaoSrv(texto);
+    if (dur) texto = String(texto).slice(0, dur.ini) + ' ' + String(texto).slice(dur.fim);
+    texto = String(texto || '').replace(/\s+/g, ' ');
+    const pedido = gcExtrairPedidoSemDuracao(texto);
+    if (pedido) pedido.duracao = dur ? dur.minutos : 0;
+    return pedido;
+  }
+
+  function gcExtrairPedidoSemDuracao(texto) {
+    const m = /^\s*(?:por favor[,\s]+)?(agendar|agende|agendo|marcar|marque|marco|encaixar|encaixe|reservar|reserve|desmarcar|desmarque|desmarco|cancelar|cancele|cancelo|remarcar|remarque|remarco|reagendar|reagende|reagendo)\b[\s,:\-]*(.*)$/i.exec(String(texto || ''));
+    if (!m) return null;
+    const verbo = gcSemAcentoSrv(m[1].toLowerCase());
+    const acao = /^(desmarc|cancel)/.test(verbo) ? 'desmarcar' : (/^(remarc|reagend)/.test(verbo) ? 'remarcar' : 'agendar');
+    let resto = m[2].replace(/^(?:(?:o|a|os|as|um|uma|pro|pra|para|paciente|pacientes)\s+)+/i, '').trim();
+    if (!resto) return { nome: '', procedimento: '', acao: acao };
+    let nome = resto, proc = '';
+    const sep = /\s*(?:[,;–—]|\s-\s)\s*/.exec(nome);
+    if (sep) { proc = nome.slice(sep.index + sep[0].length); nome = nome.slice(0, sep.index); }
+    const m2 = /\s+(?:para|pra|pro|com)\s+/i.exec(nome);
+    if (m2) { proc = (nome.slice(m2.index + m2[0].length) + ' ' + proc).trim(); nome = nome.slice(0, m2.index); }
+    let tokens = nome.split(/\s+/).filter(Boolean);
+    const e = new Set(gcPROCEDIMENTOS_CHAVE_SRV);
+    if (tokens.length && e.has(gcSemAcentoSrv(tokens[0]))) {
+      // "limpeza da Maria Silva": procedimento primeiro, nome depois do conector
+      const j = tokens.findIndex((tk, i) => i > 0 && /^(de|da|do|para|pra|pro|com)$/i.test(tk));
+      if (j > 0) { proc = (tokens.slice(0, j).join(' ') + ' ' + proc).trim(); tokens = tokens.slice(j + 1); }
+    } else {
+      const idx = tokens.findIndex((tk, i) => i > 0 && e.has(gcSemAcentoSrv(tk)));
+      if (idx > 0) { proc = (tokens.slice(idx).join(' ') + ' ' + proc).trim(); tokens = tokens.slice(0, idx); }
+    }
+    nome = tokens.join(' ').replace(/[.,;:]+$/, '').replace(/(?:\s+(?:de|do|da|para|pra|pro|dia|no|na|em|ao|as|às|a|e))+$/i, '').trim();
+    proc = proc.replace(/^[\s,;:\-–—]+/, '').replace(/^(?:para|pra|pro|com|de|do|da)\s+/i, '').replace(/[.,;:]+$/, '').trim();
+    if (proc) proc = proc.charAt(0).toUpperCase() + proc.slice(1).toLowerCase();
+    return { nome: nome, procedimento: proc, acao: acao };
+  }
+  function gcSlotsDaEscala(escala, dow) {
+    const set = {};
+    (escala.dias[dow] || []).forEach(t => {
+      const cfg = escala.turnos[t];
+      if (!cfg) return;
+      for (let m = gcMinutosSrv(cfg.ini); m < gcMinutosSrv(cfg.fim); m += 30) set[m] = true;
+    });
+    return set;
+  }
+
+
+  // ===== Agendar / desmarcar / remarcar por texto ou voz =====
+  const gcDiaTxt = (iso) => iso.split('-').reverse().join('/').slice(0, 5);
+  const gcDow = (iso) => { const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d, 12).getDay(); };
+
+  async function gcLerEscala() {
+    let escala = { turnos: gcTURNOS_PADRAO_SRV, dias: gcDIAS_ESCALA_PADRAO_SRV };
+    const r = await window.gcSb.from('checklist').select('data,item').eq('data', '9999-12-31').limit(50);
+    ((r && r.data) || []).forEach(x => {
+      if (String(x.item).indexOf('escala:') !== 0) return;
+      try { const e = JSON.parse(String(x.item).slice(7)); if (e && e.turnos && e.dias) escala = e; } catch (e) { /* mantém */ }
+    });
+    return escala;
+  }
+
+  async function gcLocalizarPaciente(nome) {
+    const tk = gcTokensNomeSrv(nome);
+    if (!tk.length) return { tipo: 'novo' };
+    const lista = gcOk(await window.gcSb.from('pacientes').select('paciente,telefone').limit(5000), 'Pacientes').data || [];
+    const achados = [];
+    for (const p of lista) {
+      const pk = gcTokensNomeSrv(p.paciente);
+      if (!pk.length) continue;
+      if (pk.join(' ') === tk.join(' ')) return { tipo: 'existe', paciente: p };
+      if (pk[0] !== tk[0]) continue;
+      if (tk.length === 1) { achados.push(p); continue; }
+      const curto = pk.length <= tk.length ? pk : tk, longo = pk.length <= tk.length ? tk : pk;
+      if (curto.length >= 2 && curto.every(t => longo.indexOf(t) >= 0)) achados.push(p);
+    }
+    if (achados.length === 1) return { tipo: 'existe', paciente: achados[0] };
+    if (achados.length > 1) return { tipo: 'ambiguo', paciente: null, opcoes: achados.slice(0, 3).map(a => String(a.paciente)) };
+    return { tipo: 'novo' };
+  }
+
+  async function gcMarcarRetornoPosOp(nome, dataISO) {
+    const achado = await gcAcharPosOp(nome, dataISO, false);
+    return achado ? gcDefinirRetornoPosOp(achado, 'Sim') : null;
+  }
+
+  async function gcTentarAlterar(nota, pedido) {
+    const sb = window.gcSb;
+    const rev = (aviso, estado) => ({ campos: { 'Agendamento': estado || 'Revisar', 'Aviso': aviso, 'Status': 'Pendente', 'Agenda ID': '' }, agenda: null, mensagem: aviso });
+    const nome = String(pedido.nome || '').trim();
+    if (!gcTokensNomeSrv(nome).length) return null;
+    const pac = await gcLocalizarPaciente(nome);
+    if (pac.tipo === 'novo') return null;
+    if (pac.tipo === 'ambiguo') return rev('Há mais de um paciente parecido com "' + nome + '": ' + pac.opcoes.join(', ') + '. Escreva o nome completo e toque em "Tentar de novo".');
+    const nomeFinal = String(pac.paciente.paciente).trim().toUpperCase();
+    const desmarcar = pedido.acao === 'desmarcar';
+    const dataNota = gcISO(nota['Data']) || '';
+    const minNota = gcMinutosSrv(nota['Horário']);
+    const hojeISO = gcHojeISO(0);
+    const todos = (gcOk(await sb.from('agenda').select('id,data_atendimento,horario,paciente,status,duracao').gte('data_atendimento', hojeISO).limit(5000), 'Agenda').data) || [];
+    let cand = todos.map(r => ({ r: r, d: r.data_atendimento || '' }))
+      .filter(x => x.d >= hojeISO && ['Cancelado', 'Desmarcou', 'Compareceu', 'Faltou'].indexOf(String(x.r.status || '').trim()) < 0 && gcMesmoPaciente(x.r.paciente, nomeFinal));
+    if (!cand.length) return rev('Não achei agendamento futuro de ' + nomeFinal + ' na Agenda.');
+    if (desmarcar && dataNota) {
+      cand = cand.filter(x => x.d === dataNota);
+      if (!cand.length) return rev('Não achei agendamento de ' + nomeFinal + ' em ' + gcDiaTxt(dataNota) + '.');
+      if (minNota >= 0 && cand.length > 1) { const f = cand.filter(x => Math.floor(gcMinutosSrv(x.r.horario) / 30) * 30 === Math.floor(minNota / 30) * 30); if (f.length) cand = f; }
+    }
+    cand.sort((a, b) => (a.d + gcHoraSrv(Math.max(0, gcMinutosSrv(a.r.horario)))).localeCompare(b.d + gcHoraSrv(Math.max(0, gcMinutosSrv(b.r.horario)))));
+    const alvo = cand[0];
+    const antes = gcNOMES_DIA_SRV[gcDow(alvo.d)] + ' ' + gcDiaTxt(alvo.d) + ' às ' + gcHoraAmigavelSrv(gcMinutosSrv(alvo.r.horario));
+    const extraOutros = cand.length > 1 && !(desmarcar && dataNota) ? ' (havia mais de um agendamento; usei o mais próximo)' : '';
+
+    if (desmarcar) {
+      gcOk(await sb.from('agenda').update({ status: 'Desmarcou', desmarcado_em: hojeISO }).eq('id', alvo.r.id), 'Agenda');
+      const posop = await gcRegraPosOpAgenda({ 'Status': 'Desmarcou', 'Data do atendimento': alvo.d, 'Paciente': nomeFinal });
+      const aviso = 'Desmarcado: ' + nomeFinal + ', ' + antes + '.' + extraOutros + (posop ? ' Pós-operatório: retorno voltou para "Não".' : '');
+      return { campos: { 'Agendamento': 'Desmarcado', 'Aviso': aviso, 'Status': 'Feita', 'Agenda ID': alvo.r.id, 'Pós-op ID': '' }, agenda: null, agendaAtualizada: { id: alvo.r.id, campos: { 'Status': 'Desmarcou', 'Desmarcado em': hojeISO } }, posop: posop, mensagem: aviso };
+    }
+
+    const novaData = dataNota || alvo.d;
+    const minAtual = gcMinutosSrv(alvo.r.horario);
+    const novaMin = minNota >= 0 ? minNota : minAtual;
+    if (novaMin < 0) return rev('Faltou a hora para remarcar ' + nomeFinal + '. Edite a nota e toque em "Tentar de novo".');
+    if (!dataNota && minNota < 0) return rev('Faltou o novo dia e/ou a nova hora para remarcar ' + nomeFinal + '. Ex.: "remarcar ' + nomeFinal.toLowerCase() + ' para sexta às 10h".');
+    if (novaData < hojeISO) return rev('A data ' + novaData.split('-').reverse().join('/') + ' já passou.');
+    if (novaData === alvo.d && novaMin === minAtual) return rev(nomeFinal + ' já está marcado(a) nesse horário.');
+    const slot = Math.floor(novaMin / 30) * 30;
+    const dm = gcDuracaoEmMinutosSrv(alvo.r.duracao);
+    const nBlocos = gcBlocosDaDuracaoSrv(dm > 30 ? dm : 0);
+    const doDia = (gcOk(await sb.from('agenda').select('id,horario,status,duracao').eq('data_atendimento', novaData).limit(2000), 'Agenda').data) || [];
+    const contagem = {};
+    doDia.forEach(r => {
+      if (r.id === alvo.r.id || gcDesmarcado(r.status)) return;
+      const m = gcMinutosSrv(r.horario);
+      if (m < 0) return;
+      const s0 = Math.floor(m / 30) * 30, dr = gcDuracaoEmMinutosSrv(r.duracao);
+      if (dr > 30) { for (let b = 0; b < gcBlocosDaDuracaoSrv(dr); b++) contagem[s0 + b * 30] = gcVAGAS_POR_HORARIO; }
+      else contagem[s0] = (contagem[s0] || 0) + 1;
+    });
+    let cabe = true;
+    for (let b = 0; b < nBlocos; b++) { const x = slot + b * 30, c = contagem[x] || 0; if (dm > 30 ? c !== 0 : c >= gcVAGAS_POR_HORARIO) cabe = false; }
+    const depois = gcNOMES_DIA_SRV[gcDow(novaData)] + ' ' + gcDiaTxt(novaData) + ' às ' + gcHoraAmigavelSrv(novaMin);
+    if (!cabe) return rev('Não consegui remarcar ' + nomeFinal + ': ' + depois + ' não tem vaga' + (dm > 30 ? ' para ' + gcRotuloDuracaoSrv(dm) : '') + '. O agendamento continua em ' + antes + '.', 'Sem vaga');
+    gcOk(await sb.from('agenda').update({ data_atendimento: novaData, horario: gcHoraSrv(novaMin) }).eq('id', alvo.r.id), 'Agenda');
+    const aviso = 'Remarcado: ' + nomeFinal + ' de ' + antes + ' para ' + depois + '.' + extraOutros;
+    return { campos: { 'Agendamento': 'Remarcado', 'Aviso': aviso, 'Status': 'Feita', 'Agenda ID': alvo.r.id, 'Pós-op ID': '' }, agenda: null, agendaAtualizada: { id: alvo.r.id, campos: { 'Data do atendimento': novaData, 'Horário': gcHoraSrv(novaMin) } }, posop: null, mensagem: aviso };
+  }
+
+  async function gcTentarAgendar(nota, pedido, confirmarNovo) {
+    const sb = window.gcSb;
+    const rev = (aviso) => ({ campos: { 'Agendamento': 'Revisar', 'Aviso': aviso, 'Status': 'Pendente', 'Agenda ID': '' }, agenda: null, mensagem: aviso });
+    const nome = String(pedido.nome || '').trim();
+    const dataISO = gcISO(nota['Data']) || '';
+    const minutos = gcMinutosSrv(nota['Horário']);
+    if (!gcTokensNomeSrv(nome).length) return rev('Não entendi o nome do paciente. Ex.: "agendar Maria Silva segunda às 8h".');
+    if (!dataISO || minutos < 0) {
+      const falta = !dataISO && minutos < 0 ? 'o dia e a hora' : (!dataISO ? 'o dia' : 'a hora');
+      return rev('Faltou ' + falta + ' para agendar ' + nome.toUpperCase() + '. Edite a nota e toque em "Tentar de novo".');
+    }
+    if (dataISO < gcHojeISO(0)) return rev('A data ' + dataISO.split('-').reverse().join('/') + ' já passou.');
+    const [a, mes, d] = dataISO.split('-').map(Number);
+    const dow = new Date(a, mes - 1, d, 12).getDay();
+    const slot = Math.floor(minutos / 30) * 30;
+    const quando = gcNOMES_DIA_SRV[dow] + ' ' + String(d).padStart(2, '0') + '/' + String(mes).padStart(2, '0') + ' às ' + gcHoraAmigavelSrv(minutos);
+
+    const doDia = ((gcOk(await sb.from('agenda').select('horario,paciente,status,duracao').eq('data_atendimento', dataISO).limit(2000), 'Agenda').data) || []).filter(r => !gcDesmarcado(r.status));
+    const contagem = {};
+    doDia.forEach(r => {
+      const m = gcMinutosSrv(r.horario);
+      if (m < 0) return;
+      const s0 = Math.floor(m / 30) * 30, dm = gcDuracaoEmMinutosSrv(r.duracao);
+      if (dm > 30) { for (let b = 0; b < gcBlocosDaDuracaoSrv(dm); b++) contagem[s0 + b * 30] = gcVAGAS_POR_HORARIO; }
+      else contagem[s0] = (contagem[s0] || 0) + 1;
+    });
+    const duracao = pedido.duracao > 30 ? pedido.duracao : 0;
+    const nBlocos = gcBlocosDaDuracaoSrv(duracao);
+    const blocosDe = (ini) => { const l = []; for (let b = 0; b < nBlocos; b++) l.push(ini + b * 30); return l; };
+    const cabe = (ini) => blocosDe(ini).every(x => (duracao ? (contagem[x] || 0) === 0 : (contagem[x] || 0) < gcVAGAS_POR_HORARIO));
+    const periodo = duracao ? gcHoraAmigavelSrv(slot) + ' às ' + gcHoraAmigavelSrv(slot + nBlocos * 30) : '';
+    const semVaga = async (motivo) => {
+      const sug = Object.keys(gcSlotsDaEscala(await gcLerEscala(), dow)).map(Number).filter(cabe)
+        .sort((x, y) => Math.abs(x - slot) - Math.abs(y - slot)).slice(0, 3).sort((x, y) => x - y)
+        .map(s0 => gcHoraAmigavelSrv(s0) + (!duracao && (contagem[s0] || 0) === 1 ? ' (1 vaga)' : ' (livre)'));
+      const aviso = motivo + (sug.length ? ' Horários com vaga neste dia' + (duracao ? ' para ' + gcRotuloDuracaoSrv(duracao) : '') + ': ' + sug.join(', ') + '.' : ' Não há outros horários com vaga neste dia.');
+      return { campos: { 'Agendamento': 'Sem vaga', 'Aviso': aviso, 'Status': 'Pendente', 'Agenda ID': '' }, agenda: null, mensagem: aviso };
+    };
+    if (duracao) {
+      if (!cabe(slot)) return semVaga('O período de ' + quando + ' por ' + gcRotuloDuracaoSrv(duracao) + ' (' + periodo + ') não está livre: já há paciente nele.');
+    } else if ((contagem[slot] || 0) >= gcVAGAS_POR_HORARIO) {
+      return semVaga('O horário de ' + quando + ' já está completamente preenchido' + (doDia.some(r => gcDuracaoEmMinutosSrv(r.duracao) > 30) ? '.' : ' (2 pacientes).'));
+    }
+
+    const pac = await gcLocalizarPaciente(nome);
+    if (pac.tipo === 'ambiguo') return rev('Há mais de um paciente parecido com "' + nome + '": ' + pac.opcoes.join(', ') + '. Escreva o nome completo e toque em "Tentar de novo".');
+    const alvoNome = pac.tipo === 'existe' ? gcTokensNomeSrv(pac.paciente.paciente).join(' ') : gcTokensNomeSrv(nome).join(' ');
+    const mesmo = doDia.some(r => { const m = gcMinutosSrv(r.horario); return m >= 0 && Math.floor(m / 30) * 30 === slot && gcTokensNomeSrv(r.paciente).join(' ') === alvoNome; });
+    if (mesmo) return rev(nome.toUpperCase() + ' já está agendado(a) nesse horário.');
+    if (pac.tipo === 'novo' && !confirmarNovo) {
+      const aviso = '"' + nome.toUpperCase() + '" não está na lista de Pacientes. É um paciente novo? Se sim, cadastro e agendo ' + quando + '.';
+      return { campos: { 'Agendamento': 'Confirmar paciente novo', 'Aviso': aviso, 'Status': 'Pendente', 'Agenda ID': '' }, agenda: null, mensagem: aviso };
+    }
+    const nomeFinal = pac.tipo === 'existe' ? String(pac.paciente.paciente).trim().toUpperCase() : nome.toUpperCase();
+    const telefone = pac.tipo === 'existe' ? String(pac.paciente.telefone || '').trim() : '';
+    if (pac.tipo === 'novo') await gcSincronizarPacientes([nomeFinal], {});
+    const registroAgenda = {
+      'Data do atendimento': dataISO, 'Horário': gcHoraSrv(minutos), 'Paciente': nomeFinal, 'Telefone': telefone,
+      'Procedimento': pedido.procedimento || '', 'Status': 'Pendente', 'Observações': '', 'Duração': gcRotuloDuracaoSrv(duracao)
+    };
+    const res = await gcAdicionarVarios('Agenda', [registroAgenda]);
+    registroAgenda['ID'] = res.ids[0];
+    const posop = await gcMarcarRetornoPosOp(nomeFinal, dataISO);
+    const total = (contagem[slot] || 0) + 1;
+    const aviso = 'Agendado: ' + nomeFinal + ', ' + quando + (duracao ? ' por ' + gcRotuloDuracaoSrv(duracao) + ' (' + periodo + '). Horário inteiro reservado para este paciente.' : '.') +
+      (duracao ? '' : total >= 2 ? ' Agora são 2 pacientes neste horário: 15 min para cada.' : ' Ainda cabe mais 1 paciente neste horário.') +
+      (pac.tipo === 'novo' ? ' Paciente novo cadastrado.' : '') +
+      (posop ? ' Pós-operatório atualizado: retorno agendado.' : '');
+    return { campos: { 'Agendamento': 'Agendado', 'Aviso': aviso, 'Status': 'Feita', 'Agenda ID': registroAgenda['ID'], 'Pós-op ID': posop ? posop.id : '' }, agenda: registroAgenda, posop: posop, mensagem: aviso, pacienteNovo: pac.tipo === 'novo' ? nomeFinal : '' };
+  }
+
+  // Cria a nota e, se for um pedido de agendamento, tenta marcar na Agenda
+  async function gcCriarNota(campos, opcoes) {
     const nota = {
       'Nota': String((campos && campos['Nota']) || '').trim().slice(0, 500),
       'Data': (campos && campos['Data']) || '', 'Horário': (campos && campos['Horário']) || '',
       'Status': 'Pendente', 'Cor': (campos && campos['Cor']) || '', 'Agendamento': '', 'Aviso': '', 'Agenda ID': '', 'Pós-op ID': ''
     };
     if (!nota['Nota']) throw new Error('Nota vazia.');
-    nota['ID'] = crypto.randomUUID();
-    gcOk(await window.gcSb.from('notas').insert(gcParaBanco('Notas', nota)), 'Notas');
-    return { sucesso: true, ids: [nota['ID']], registro: nota, agenda: null, agendaAtualizada: null, posop: null, mensagem: '' };
+    let resultado = null;
+    const pedido = gcExtrairPedidoAgendamento(nota['Nota']);
+    if (pedido) {
+      resultado = pedido.acao === 'agendar' ? await gcTentarAgendar(nota, pedido, false) : await gcTentarAlterar(nota, pedido);
+      if (resultado) Object.assign(nota, resultado.campos);
+    }
+    const resolvido = opcoes && opcoes.semNotaSeAgendou && ['Agendado', 'Desmarcado', 'Remarcado'].indexOf(String(nota['Agendamento'])) >= 0;
+    let ids = [];
+    if (!resolvido) {
+      nota['ID'] = crypto.randomUUID();
+      gcOk(await window.gcSb.from('notas').insert(gcParaBanco('Notas', nota)), 'Notas');
+      ids = [nota['ID']];
+    }
+    return { sucesso: true, ids: ids, registro: nota, agenda: resultado ? resultado.agenda : null, agendaAtualizada: resultado ? resultado.agendaAtualizada || null : null, posop: resultado ? resultado.posop || null : null, mensagem: resultado ? resultado.mensagem : '' };
+  }
+
+  async function gcAgendarNotaExistente(idNota, confirmarNovo) {
+    const sb = window.gcSb;
+    const r = gcOk(await sb.from('notas').select('*').eq('id', idNota).maybeSingle(), 'Notas');
+    if (!r.data) throw new Error('Nota não encontrada.');
+    const atual = gcParaTela('Notas', r.data);
+    const limpar = async (msg) => {
+      gcOk(await sb.from('notas').update({ agendamento: '', aviso: '', agenda_id: '' }).eq('id', idNota), 'Notas');
+      return { sucesso: true, registro: { 'Agendamento': '', 'Aviso': '', 'Status': atual['Status'], 'Agenda ID': '' }, agenda: null, mensagem: msg };
+    };
+    if (['Agendado', 'Desmarcado', 'Remarcado'].indexOf(String(atual['Agendamento'])) >= 0 && atual['Agenda ID']) throw new Error('Esta nota já foi aplicada na Agenda.');
+    const pedido = gcExtrairPedidoAgendamento(atual['Nota']);
+    if (!pedido) return limpar('Esta nota não é um pedido de agendamento.');
+    const res = pedido.acao === 'agendar' ? await gcTentarAgendar(atual, pedido, !!confirmarNovo) : await gcTentarAlterar(atual, pedido);
+    if (!res) return limpar('Não achei esse paciente. A nota ficou como nota comum.');
+    gcOk(await sb.from('notas').update(gcParaBanco('Notas', res.campos)).eq('id', idNota), 'Notas');
+    return { sucesso: true, registro: res.campos, agenda: res.agenda, agendaAtualizada: res.agendaAtualizada || null, posop: res.posop || null, mensagem: res.mensagem, pacienteNovo: res.pacienteNovo || '' };
   }
 
   async function gcDesfazerAgendamentoNota(idNota) {
@@ -1971,7 +2305,8 @@ return OPCOES[campo] || null;
       case 'atualizarRegistro': return gcAtualizar(args[0], args[1], args[2]);
       case 'excluirRegistro': return gcExcluir(args[0], args[1]);
       case 'salvarChecklistItem': return gcChecklist(args[0], args[1], args[2]);
-      case 'criarNotaInteligente': return gcCriarNota(args[0]);
+      case 'criarNotaInteligente': return gcCriarNota(args[0], args[1]);
+      case 'agendarNotaExistente': return gcAgendarNotaExistente(args[0], args[1]);
       case 'desfazerAgendamentoNota': return gcDesfazerAgendamentoNota(args[0]);
       default:
         if (!gcAvisouPendente) { gcAvisouPendente = true; mostrarToast('Esta função ainda não foi migrada para o novo sistema.'); }
