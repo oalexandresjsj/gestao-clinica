@@ -1290,6 +1290,16 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   body:is([data-aba="Boletos"],[data-aba="Notas"]) { height: 100dvh; overflow: hidden; }
   body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active { min-height: 0 !important; overflow: hidden; }
   body:is([data-aba="Boletos"],[data-aba="Notas"]) .main > .page.active > .panel { min-height: 0 !important; overflow-x: hidden !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch; flex: 1 1 0; }
+
+  /* gaveta lateral do menu (igual ao computador) */
+  body.gc-drawer .sidebar.sidebar{display:flex!important;position:fixed!important;left:0;top:0;bottom:0;width:min(82vw,290px)!important;min-width:0!important;padding:17px 14px calc(17px + env(safe-area-inset-bottom))!important;z-index:260;overflow-y:auto;box-shadow:6px 0 28px rgba(0,0,0,.35);animation:gcGav .22s ease-out}
+  body.gc-drawer .sidebar .brand-name,body.gc-drawer .sidebar .nav-label,body.gc-drawer .sidebar .nav-text{display:revert!important}
+  body.gc-drawer .sidebar .brand{padding:4px 8px 22px!important}
+  body.gc-drawer .sidebar .nav-btn{justify-content:flex-start!important;padding:13px 14px!important}
+  body.gc-drawer .sidebar .gc-perfil-btn{display:flex!important}
+  #gcGavetaBg{position:fixed;inset:0;z-index:255;background:rgba(15,20,35,.5);animation:gcGavBg .22s ease-out}
+  @keyframes gcGav{from{transform:translateX(-100%)}to{transform:none}}
+  @keyframes gcGavBg{from{opacity:0}to{opacity:1}}
 }
 </style>
 <style id="gcPrefs">
@@ -7803,8 +7813,22 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
       var nb = document.querySelectorAll('.sidebar .nav-btn')[Number(b.dataset.i)]; if (nb) nb.click();
     });
   }
+  /* gaveta lateral (igual ao menu do computador): logo, Developed by Alexandre, abas, perfil e sair */
+  function gaveta(abrir){
+    var bg = document.getElementById('gcGavetaBg');
+    if (!abrir) { document.body.classList.remove('gc-drawer'); if (bg) bg.remove(); return; }
+    if (document.body.classList.contains('gc-drawer')) return;
+    var sb = document.querySelector('.sidebar'); if (!sb) return;
+    sb.classList.remove('collapsed');
+    bg = document.createElement('div'); bg.id = 'gcGavetaBg';
+    bg.addEventListener('click', function(){ gaveta(false); });
+    document.body.appendChild(bg);
+    document.body.classList.add('gc-drawer');
+    sb.onclick = function(e){ if (e.target.closest('.nav-btn, .gc-perfil-btn, #gcSair')) gaveta(false); };
+  }
+  window.gcFecharGaveta = function(){ gaveta(false); };
   var mb = document.getElementById('menuToggleBtn');
-  if (mb) { mb.removeAttribute('onclick'); mb.addEventListener('click', function(e){ if (mob()) { e.stopPropagation(); if (window.gcAbrirPerfil) window.gcAbrirPerfil(); else montarMenu(); } else alternarMenu(); }); }
+  if (mb) { mb.removeAttribute('onclick'); mb.addEventListener('click', function(e){ if (mob()) { e.stopPropagation(); gaveta(true); } else alternarMenu(); }); }
   var abrirOrig = window.abrirPagina;
   window.abrirPagina = function(p){
     document.body.classList.toggle('gc-ag', p === 'Agenda' && mob());
@@ -7815,6 +7839,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   };
   window.addEventListener('popstate', function(){
     if (!mob() || window.__gcPop) return;
+    if (document.body.classList.contains('gc-drawer')) { gaveta(false); history.pushState({gc:1}, ''); return; }
     var f = document.getElementById('gcMenu'); if (f) { f.remove(); history.pushState({gc:1}, ''); return; }
     var abertoModal = document.querySelector('.modal-overlay.show, .modal-overlay.active');
     window.__gcVoltando = true; try{ abrirOrig('Agenda'); }finally{ window.__gcVoltando = false; }
