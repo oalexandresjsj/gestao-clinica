@@ -7661,7 +7661,14 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     if (reg) { try { texto = aba==='Agenda' ? mensagemAgenda(reg) : (aba==='Orçamentos' ? mensagemLeadPadrao(reg) : mensagemBoleto(reg)); } catch(e){} }
     var tel = reg ? numeroWpp((reg['Telefone']||'') || obterTelefonePaciente(reg['Paciente']||'')) : '';
     if (!texto) return copiarOrig.apply(this, arguments);
-    if (!tel) { mostrarToast('Esse paciente não tem telefone cadastrado. Copiei a mensagem.'); return copiarOrig.apply(this, arguments); }
+    if (!tel) {
+      var cp = function(){ try { var ta=document.createElement('textarea'); ta.value=texto; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch(e){} };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).catch(cp); else cp();
+      var nm = primeiroNome((reg && reg['Paciente']) || '') || 'Esse paciente';
+      var acaoEnv = aba==='Agenda' ? 'contatoAgendaFeito' : (aba==='Orçamentos' ? 'contatoOrcamento' : 'contatoBoletoFeito');
+      perguntarSimNao('Sem telefone cadastrado', nm + ' não tem telefone na aba Pacientes, então não consegui abrir o WhatsApp. A mensagem foi copiada. Você já enviou?', function(){ executarAlternancia(aba, id, acaoEnv); }, null);
+      return;
+    }
     // abre o WhatsApp direto na conversa, com a mensagem pronta (sem copiar)
     mostrarToast('Abrindo o WhatsApp…');
     window.location.href = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + encodeURIComponent(texto);
