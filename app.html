@@ -12,7 +12,7 @@ f.textContent = 'ERRO NO APP: ' + (e && e.message ? e.message : '') + (e && e.li
 } catch (x) {}
 });
 </script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://kazoyedpjzhaicgbviut.supabase.co https://oalexandresjsj.github.io https://cdnjs.cloudflare.com; worker-src 'self' blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://kazoyedpjzhaicgbviut.supabase.co wss://kazoyedpjzhaicgbviut.supabase.co https://oalexandresjsj.github.io https://cdnjs.cloudflare.com; worker-src 'self' blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex,nofollow">
 <meta charset="UTF-8">
@@ -8236,6 +8236,53 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
         aplicarPermissoes();
       });
     });
+  });
+})();
+</script><script>
+/* ===== Sincronização entre aparelhos (Supabase Realtime) ===== */
+(function(){
+  var TAB = ['pacientes','agenda','boletos','pos_operatorio','laboratorio','orcamentos','indicacoes','rotina','notas','checklist','laboratorios_contatos'];
+  var timer = null, quer = false, ultimaCarga = Date.now(), tEvento = 0, canalOk = false;
+
+  /* registra quando o app recarregou os dados (por qualquer motivo) */
+  var cdOrig = window.carregarDados;
+  if (typeof cdOrig === 'function') {
+    window.carregarDados = function(){ ultimaCarga = Date.now(); return cdOrig.apply(this, arguments); };
+  }
+  function ocupado(){
+    if (document.hidden) return true;
+    if (document.querySelector('.modal-overlay.show, #dlgFundo, #gcLabs, #gcPed, #gcPerfil, #gcMicBox')) return true;
+    try { if (typeof gravacoesPendentes !== 'undefined' && Object.keys(gravacoesPendentes).some(function(k){ return gravacoesPendentes[k] > 0; })) return true; } catch(e){}
+    return false;
+  }
+  function tentar(){
+    timer = null;
+    if (ocupado()) { quer = true; if (!document.hidden) timer = setTimeout(tentar, 3000); return; }
+    quer = false;
+    if (ultimaCarga > tEvento) return;   /* o app já recarregou depois dessa mudança (ex.: a gravação foi feita aqui) */
+    try { carregarDados(); } catch(e){}
+  }
+  function agendar(ms){ if (timer) clearTimeout(timer); timer = setTimeout(tentar, ms); }
+
+  function onMudanca(){ tEvento = Date.now(); agendar(1200); }
+  window.gcSessao.then(function(){
+    var sb = window.gcSb; if (!sb || !sb.channel) return;
+    try {
+      var ch = sb.channel('gc-sync');
+      TAB.forEach(function(t){ ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, onMudanca); });
+      ch.subscribe(function(st){ canalOk = (st === 'SUBSCRIBED'); });
+    } catch(e){}
+    /* garantias: ao voltar para o app e, se a conexão ao vivo cair, a cada 1 min; com tudo ok, a cada 5 min */
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden) return;
+      if (quer || Date.now() - ultimaCarga > 60000) { tEvento = Date.now(); agendar(300); }
+    });
+    window.addEventListener('online', function(){ tEvento = Date.now(); agendar(500); });
+    setInterval(function(){
+      if (document.hidden) return;
+      var limite = canalOk ? 300000 : 60000;
+      if (Date.now() - ultimaCarga >= limite) { tEvento = Date.now(); agendar(100); }
+    }, 30000);
   });
 })();
 </script></body>
