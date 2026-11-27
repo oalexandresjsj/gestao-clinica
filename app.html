@@ -1518,6 +1518,23 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
 #gcPed .gp2-g select{border:1.5px solid var(--border,#dfe3ea);border-radius:10px;padding:8px;font:inherit;font-size:14px;background:var(--white,#fff);color:var(--text,#2b3a55)}
 #gcPed .gp2-b{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,body.gc-ro #tableWrap .icon-btn,body.gc-ro #tableWrap .btn-danger{display:none!important}
+
+#gcPed .gp2-abas{display:flex;gap:6px;margin:2px 0 8px}
+#gcPed .gp2-abas button{flex:1;border:1.5px solid var(--border,#dfe3ea);background:var(--white,#fff);color:var(--muted,#7a8599);border-radius:999px;padding:7px 10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+#gcPed .gp2-abas button.on{background:var(--blue,#3d5a8c);border-color:var(--blue,#3d5a8c);color:#fff}
+#gcPed .gp2-abas i{font-style:normal;background:#E24B4B;color:#fff;border-radius:999px;padding:0 6px;font-size:11px;margin-left:4px}
+#gcPed .gp2-linha{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#gcPed .gp2-chip{flex:none;font-size:11px;font-weight:800;border-radius:999px;padding:2px 10px;background:#E1F3EA;color:#1E6B49}
+#gcPed .gp2-chip.bloqueado{background:#FCE4E4;color:#B93C3C}
+#gcPed .gp2-chip.pendente{background:#FFF1DD;color:#A8620D}
+#gcPed .gp2-chip.adm{background:#E3E9F5;color:#3d5a8c}
+#gcPed .gp2-voce{font-size:11px;font-weight:700;color:var(--muted,#7a8599);margin-left:6px}
+#gcPed .gp2-eq{cursor:pointer}
+#gcPed .gp2-eq.aberto{cursor:default;box-shadow:inset 0 0 0 2px #cfd8ea}
+#gcPed .gp2-info{font-size:12px;color:var(--muted,#7a8599);line-height:1.5}
+#gcPed .gp2-on{color:#1E8A5A}
+#gcPed .gp2-ver{font-size:12px;color:var(--blue,#3d5a8c);font-weight:700;margin-top:6px}
+#gcPed .gp2-eq .gp2-g{margin-top:10px}
 @media print{#gcPed,#gcPonto{display:none!important}}
 @media (min-width:701px){
   body:has(.sidebar.collapsed) #gcSair{font-size:0;width:38px;height:38px;padding:0;left:20px;bottom:14px;display:flex;align-items:center;justify-content:center;opacity:.9}
@@ -1985,7 +2002,7 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
     var r = await sb.auth.getUser();
     var u = r.data && r.data.user;
     if (!u) { mostrar('login'); return; }
-    var p = await sb.from('perfis').select('nome,papel,ativo').eq('id', u.id).maybeSingle();
+    var p = await sb.from('perfis').select('id,nome,papel,ativo').eq('id', u.id).maybeSingle();
     if (!p.error && p.data && !p.data.ativo) {
       await sb.auth.signOut();
       $('gcPendTx').textContent = 'Seu cadastro foi recebido e está aguardando a liberação do administrador. Tente entrar de novo mais tarde.';
@@ -8641,59 +8658,141 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     return r;
   };
 
-  /* ---- administrador: bolinha vermelha na cabeça + lista de pedidos ---- */
-  var pendentes = [];
+  /* ---- administrador: bolinha vermelha na cabeça + pedidos + equipe ---- */
+  var pendentes = [], eq = null, aba = 'eq', aberto = '', carregando = false;
   function ponto(){
     var ic = document.querySelector('.brand-icon'); if (!ic) return null;
     var d = document.getElementById('gcPonto');
     if (!d) { d = document.createElement('span'); d.id = 'gcPonto'; ic.appendChild(d); }
     return d;
   }
+  function pedidoOuErro(q){ return q; }
   function consultar(){
     var sb = sbx(); if (!sb || !ehAdmin) return Promise.resolve();
-    return sb.from('perfis').select('id,nome,email,criado_em').eq('ativo', false).order('criado_em').then(function(r){
+    var q = sb.from('perfis').select('id,nome,email,criado_em').eq('ativo', false).is('liberado_em', null).order('criado_em');
+    return Promise.resolve(q).then(function(r){
+      if (r && r.error) return sb.from('perfis').select('id,nome,email,criado_em').eq('ativo', false).order('criado_em');
+      return r;
+    }).then(function(r){
       pendentes = (r && !r.error && r.data) ? r.data : [];
       var d = ponto(); if (d) { d.textContent = pendentes.length > 9 ? '9+' : String(pendentes.length); d.style.display = pendentes.length ? 'flex' : 'none'; }
-      var ic = document.querySelector('.brand-icon'); if (ic) ic.title = pendentes.length ? pendentes.length + ' pedido(s) de acesso' : 'Pedidos de acesso';
+      var ic = document.querySelector('.brand-icon'); if (ic) ic.title = pendentes.length ? pendentes.length + ' pedido(s) de acesso' : 'Equipe e acessos';
       var o = document.getElementById('gcPed'); if (o) desenhar(o);
     }, function(){});
   }
+  function carregarEquipe(){
+    var sb = sbx(); if (!sb || !ehAdmin) return Promise.resolve();
+    carregando = true;
+    return Promise.all([Promise.resolve(sb.from('perfis').select('*')), Promise.resolve(sb.from('permissoes').select('user_id,aba,pode_editar'))]).then(function(rs){
+      var pf = rs[0], pm = rs[1];
+      if (pf && !pf.error) {
+        var perms = {}; ((pm && pm.data) || []).forEach(function(q){ (perms[q.user_id] = perms[q.user_id] || {})[q.aba] = !!q.pode_editar; });
+        eq = { perfis: pf.data || [], perms: perms };
+      }
+      carregando = false;
+      var o = document.getElementById('gcPed'); if (o) desenhar(o);
+    }, function(){ carregando = false; });
+  }
   function fechar(){ var o = document.getElementById('gcPed'); if (o) o.remove(); }
   function dh(iso){ var d = new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
-  function cartao(p){
-    var h = '<div class="gp2-c" data-id="'+esc(p.id)+'"><div class="gp2-n">'+esc(p.nome)+'</div><div class="gp2-m">'+esc(p.email||'')+(p.criado_em ? ' · pediu em '+dh(p.criado_em) : '')+'</div><div class="gp2-g">';
+  function dd(iso){ var d = new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString('pt-BR'); }
+  function seletores(mapa, padrao){
+    var h = '<div class="gp2-g">';
     ABAS.forEach(function(a){
-      var pad = a === 'Rotina' ? 'n' : 'e';
-      h += '<label><span>'+esc(ROTULO[a]||a)+'</span><select data-aba="'+esc(a)+'"><option value="n"'+(pad==='n'?' selected':'')+'>Sem acesso</option><option value="v">Só ver</option><option value="e"'+(pad==='e'?' selected':'')+'>Ver e editar</option></select></label>';
+      var v = mapa ? (a in mapa ? (mapa[a] ? 'e' : 'v') : 'n') : (a === 'Rotina' ? 'n' : 'e');
+      h += '<label><span>'+esc(ROTULO[a]||a)+'</span><select data-aba="'+esc(a)+'"><option value="n"'+(v==='n'?' selected':'')+'>Sem acesso</option><option value="v"'+(v==='v'?' selected':'')+'>Só ver</option><option value="e"'+(v==='e'?' selected':'')+'>Ver e editar</option></select></label>';
     });
-    return h + '</div><div class="gp2-b"><button type="button" class="btn btn-secondary" data-rec="1">Recusar</button><button type="button" class="btn btn-primary" data-lib="1">Liberar acesso</button></div></div>';
+    return h + '</div>';
+  }
+  function cartao(p){
+    return '<div class="gp2-c" data-id="'+esc(p.id)+'"><div class="gp2-n">'+esc(p.nome)+'</div><div class="gp2-m">'+esc(p.email||'')+(p.criado_em ? ' · pediu em '+dh(p.criado_em) : '')+'</div>' + seletores(null) +
+      '<div class="gp2-b"><button type="button" class="btn btn-secondary" data-rec="1">Recusar</button><button type="button" class="btn btn-primary" data-lib="1">Liberar acesso</button></div></div>';
+  }
+  function situacao(p){ return p.ativo ? 'ativo' : (p.liberado_em ? 'bloqueado' : 'pendente'); }
+  function nomeDe(id){ var f = eq && eq.perfis.filter(function(x){ return x.id === id; })[0]; return f ? f.nome : ''; }
+  function cartaoEquipe(p, eu){
+    var st = situacao(p), adm = p.papel === 'admin', online = p.ultimo_acesso && (Date.now() - new Date(p.ultimo_acesso).getTime() < 10*60000);
+    var chip = adm ? '<span class="gp2-chip adm">Administrador</span>' : '<span class="gp2-chip '+st+'">'+(st==='ativo'?'Ativo':st==='bloqueado'?'Bloqueado':'Pendente')+'</span>';
+    var linhas = [];
+    if (p.criado_em) linhas.push('Conta criada em ' + dd(p.criado_em));
+    if (p.liberado_em && !adm) linhas.push('Liberado em ' + dd(p.liberado_em) + (p.liberado_por && nomeDe(p.liberado_por) ? ' por ' + esc(nomeDe(p.liberado_por)) : ''));
+    linhas.push(online ? '<b class="gp2-on">● online agora</b>' : (p.ultimo_acesso ? 'Último acesso: ' + dh(p.ultimo_acesso) : 'Nunca acessou'));
+    var abre = aberto === p.id && !adm && st !== 'pendente';
+    var h = '<div class="gp2-c gp2-eq'+(abre?' aberto':'')+'" data-id="'+esc(p.id)+'" data-st="'+st+'"><div class="gp2-linha"><div class="gp2-n">'+esc(p.nome)+(p.id===eu?' <span class="gp2-voce">você</span>':'')+'</div>'+chip+'</div><div class="gp2-m">'+esc(p.email||'')+'</div><div class="gp2-info">'+linhas.join(' · ')+'</div>';
+    if (abre) {
+      h += seletores(eq.perms[p.id] || null) + '<div class="gp2-b">' +
+        (st === 'ativo' ? '<button type="button" class="btn btn-secondary" data-blq="1">Bloquear</button><button type="button" class="btn btn-primary" data-sal="1">Salvar acessos</button>' : '<button type="button" class="btn btn-primary" data-sal="1">Liberar de novo</button>') + '</div>';
+    } else if (!adm && st !== 'pendente') h += '<div class="gp2-ver">Toque para ver ou mudar os acessos ›</div>';
+    else if (st === 'pendente') h += '<div class="gp2-ver">Aguardando liberação, veja em Pedidos ›</div>';
+    return h + '</div>';
   }
   function desenhar(o){
     var l = o.querySelector('.gp2-lista'); if (!l) return;
-    l.innerHTML = pendentes.length ? pendentes.map(cartao).join('') : '<div class="gp2-vazio">Nenhum pedido de acesso no momento.</div>';
+    var t = o.querySelector('.gp2-abas');
+    t.innerHTML = '<button type="button" data-aba="eq" class="'+(aba==='eq'?'on':'')+'">Equipe</button><button type="button" data-aba="ped" class="'+(aba==='ped'?'on':'')+'">Pedidos'+(pendentes.length?' <i>'+pendentes.length+'</i>':'')+'</button>';
+    if (aba === 'ped') {
+      o.querySelector('.gp2-dica').textContent = 'Escolha o que cada pessoa pode ver ou editar e toque em Liberar. Quem você recusar é apagado.';
+      l.innerHTML = pendentes.length ? pendentes.map(cartao).join('') : '<div class="gp2-vazio">Nenhum pedido de acesso no momento.</div>';
+      return;
+    }
+    if (!eq) { o.querySelector('.gp2-dica').textContent = ''; l.innerHTML = '<div class="gp2-vazio">' + (carregando ? 'Carregando…' : 'Não consegui carregar a lista.') + '</div>'; return; }
+    var eu = (window.gcPerfil && window.gcPerfil.id) || '';
+    var ord = { ativo: 1, bloqueado: 2, pendente: 3 };
+    var lista = eq.perfis.slice().sort(function(a, b){
+      if ((a.papel === 'admin') !== (b.papel === 'admin')) return a.papel === 'admin' ? -1 : 1;
+      var sa = ord[situacao(a)], sb2 = ord[situacao(b)]; if (sa !== sb2) return sa - sb2;
+      return String(b.ultimo_acesso || '').localeCompare(String(a.ultimo_acesso || ''));
+    });
+    var on = lista.filter(function(p){ return p.ultimo_acesso && Date.now() - new Date(p.ultimo_acesso).getTime() < 10*60000; }).length;
+    o.querySelector('.gp2-dica').textContent = lista.length + (lista.length === 1 ? ' conta' : ' contas') + ' · ' + on + ' online agora';
+    l.innerHTML = lista.map(function(p){ return cartaoEquipe(p, eu); }).join('');
   }
+  function abas(c){ var r = []; c.querySelectorAll('select').forEach(function(s){ if (s.value !== 'n') r.push({ aba: s.dataset.aba, editar: s.value === 'e' }); }); return r; }
   function abrir(){
     if (!ehAdmin || document.getElementById('gcPed')) return;
+    aba = pendentes.length ? 'ped' : 'eq'; aberto = '';
     var o = document.createElement('div'); o.id = 'gcPed';
-    o.innerHTML = '<div class="gp2-box"><div class="gp2-top"><b>Pedidos de acesso</b><button type="button" class="gp2-x" data-f="1" aria-label="Fechar">✕</button></div><div class="gp2-dica">Escolha o que cada pessoa pode ver ou editar e toque em Liberar. Quem você recusar é apagado.</div><div class="gp2-lista"></div></div>';
-    document.body.appendChild(o); desenhar(o); consultar();
+    o.innerHTML = '<div class="gp2-box"><div class="gp2-top"><b>Equipe e acessos</b><button type="button" class="gp2-x" data-f="1" aria-label="Fechar">✕</button></div><div class="gp2-abas"></div><div class="gp2-dica"></div><div class="gp2-lista"></div></div>';
+    document.body.appendChild(o); desenhar(o); consultar(); carregarEquipe();
     o.addEventListener('click', function(e){
       if (e.target === o || e.target.closest('[data-f]')) { fechar(); return; }
+      var tb = e.target.closest('.gp2-abas button');
+      if (tb) { aba = tb.dataset.aba; aberto = ''; desenhar(o); if (aba === 'eq') carregarEquipe(); return; }
       var c = e.target.closest('.gp2-c'); if (!c) return;
-      var id = c.dataset.id, sb = sbx();
+      var id = c.dataset.id, sb = sbx(), b = e.target.closest('button');
+      if (c.classList.contains('gp2-eq')) {
+        if (e.target.closest('select')) return;
+        if (!b) { if (c.dataset.st === 'pendente') { aba = 'ped'; desenhar(o); } else if (!c.querySelector('.gp2-chip.adm')) { aberto = (aberto === id ? '' : id); desenhar(o); } return; }
+        if (b.hasAttribute('data-sal')) {
+          var ab = abas(c); if (!ab.length) { aviso('Marque pelo menos uma aba.'); return; }
+          b.disabled = true; b.textContent = 'Salvando…';
+          Promise.resolve(sb.rpc('liberar_acesso', { p_user: id, p_abas: ab })).then(function(r){
+            if (r && r.error) { aviso('Não consegui salvar: ' + r.error.message); b.disabled = false; return; }
+            aviso('Acessos atualizados.'); aberto = ''; carregarEquipe(); consultar();
+          });
+        } else if (b.hasAttribute('data-blq')) {
+          perguntarSimNao('Bloquear acesso?', (c.querySelector('.gp2-n').childNodes[0].textContent.trim()) + ' não vai mais conseguir ver nada no app. A conta continua existindo e você pode liberar de novo.', function(){
+            Promise.resolve(sb.rpc('bloquear_acesso', { p_user: id })).then(function(r){
+              if (r && r.error) { aviso('Não consegui bloquear: ' + r.error.message); return; }
+              aviso('Acesso bloqueado.'); aberto = ''; carregarEquipe(); consultar();
+            });
+          }, null);
+        }
+        return;
+      }
       if (e.target.closest('[data-lib]')) {
-        var abas = []; c.querySelectorAll('select').forEach(function(s){ if (s.value !== 'n') abas.push({ aba: s.dataset.aba, editar: s.value === 'e' }); });
-        if (!abas.length) { aviso('Marque pelo menos uma aba.'); return; }
-        var b = e.target.closest('button'); b.disabled = true; b.textContent = 'Liberando…';
-        Promise.resolve(sb.rpc('liberar_acesso', { p_user: id, p_abas: abas })).then(function(r){
-          if (r && r.error) { b.disabled = false; b.textContent = 'Liberar acesso'; aviso('Não consegui liberar: ' + r.error.message); return; }
-          aviso('Acesso liberado.'); consultar();
+        var abas2 = abas(c);
+        if (!abas2.length) { aviso('Marque pelo menos uma aba.'); return; }
+        var bt = e.target.closest('button'); bt.disabled = true; bt.textContent = 'Liberando…';
+        Promise.resolve(sb.rpc('liberar_acesso', { p_user: id, p_abas: abas2 })).then(function(r){
+          if (r && r.error) { bt.disabled = false; bt.textContent = 'Liberar acesso'; aviso('Não consegui liberar: ' + r.error.message); return; }
+          aviso('Acesso liberado.'); consultar(); carregarEquipe();
         });
       } else if (e.target.closest('[data-rec]')) {
         perguntarSimNao('Recusar pedido?', 'A conta de ' + (c.querySelector('.gp2-n').textContent) + ' será apagada. Ela poderá pedir de novo depois.', function(){
           Promise.resolve(sb.rpc('recusar_acesso', { p_user: id })).then(function(r){
             if (r && r.error) { aviso('Não consegui recusar: ' + r.error.message); return; }
-            aviso('Pedido recusado.'); consultar();
+            aviso('Pedido recusado.'); consultar(); carregarEquipe();
           });
         }, null);
       }
@@ -8710,7 +8809,13 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     window.addEventListener('focus', consultar);
   }
 
+  function registrarAcesso(){
+    var sb = sbx(); if (!sb || document.hidden) return;
+    try { Promise.resolve(sb.rpc('registrar_acesso')).then(function(){}, function(){}); } catch(e){}
+  }
   window.gcSessao.then(function(){
+    registrarAcesso(); setInterval(registrarAcesso, 5 * 60000);
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) registrarAcesso(); });
     var p = window.gcPerfil || {};
     if (p.papel === 'admin') { iniciarAdmin(); return; }
     var sb = sbx();
