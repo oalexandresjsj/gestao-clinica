@@ -8444,7 +8444,11 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
       perguntarSimNao('Sem telefone cadastrado', nm + ' não tem telefone na aba Pacientes, então não consegui abrir o WhatsApp. A mensagem foi copiada. Você já enviou?', function(){ executarAlternancia(aba, id, acaoEnv); }, null);
       return;
     }
-    // abre o WhatsApp direto na conversa, com a mensagem pronta (sem copiar)
+    // copia a mensagem em silêncio (caso o WhatsApp não encontre o contato, é só colar) e abre a conversa com o texto pronto
+    try {
+      var cp2 = function(){ try { var ta=document.createElement('textarea'); ta.value=texto; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch(e){} };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).catch(cp2); else cp2();
+    } catch(e){}
     mostrarToast('Abrindo o WhatsApp…');
     window.location.href = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + encodeURIComponent(texto);
     var nome = reg ? primeiroNome(reg['Paciente'] || '') : 'o paciente';
@@ -8452,10 +8456,10 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
       if (aba === 'Agenda') {
         if (igual(reg['Status'], 'Confirmado')) return;
         if (igual(reg['Status'], 'Avisado')) { perguntarSimNao('Voltar para pendente?', nome + ' já está como avisado. Quer voltar para pendente?', function(){ executarAlternancia('Agenda', id, 'pendenteAgenda'); }, null); return; }
-        perguntarSimNao('Mensagem enviada?', 'Você já entrou em contato com ' + nome + '?', function(){ executarAlternancia('Agenda', id, 'contatoAgendaFeito'); }, null); return;
+        perguntarSimNao('Conseguiu entrar em contato?', 'Você já entrou em contato com ' + nome + '? Se o WhatsApp não achou o contato, a mensagem já está copiada para você colar.', function(){ executarAlternancia('Agenda', id, 'contatoAgendaFeito'); }, null); return;
       }
-      if (aba === 'Orçamentos') { perguntarSimNao('Mensagem enviada?', 'Você já enviou a mensagem ao paciente? Se sim, registro o contato feito e agendo o próximo.', function(){ executarAlternancia(aba, id, 'contatoOrcamento'); }, null); return; }
-      perguntarSimNao('Mensagem enviada?', 'Você já enviou a mensagem ao paciente? Se sim, vamos registrar que ele foi avisado.', function(){ executarAlternancia(aba, id, 'contatoBoletoFeito'); }, null);
+      if (aba === 'Orçamentos') { perguntarSimNao('Conseguiu entrar em contato?', 'Você já enviou a mensagem ao paciente? Se sim, registro o contato feito e agendo o próximo. Se o WhatsApp não achou o contato, a mensagem já está copiada para você colar.', function(){ executarAlternancia(aba, id, 'contatoOrcamento'); }, null); return; }
+      perguntarSimNao('Conseguiu entrar em contato?', 'Você já enviou a mensagem ao paciente? Se sim, vamos registrar que ele foi avisado. Se o WhatsApp não achou o contato, a mensagem já está copiada para você colar.', function(){ executarAlternancia(aba, id, 'contatoBoletoFeito'); }, null);
     }, 1200);
   };
 
