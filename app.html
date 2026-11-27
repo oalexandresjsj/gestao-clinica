@@ -1531,7 +1531,8 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
   #gcTogSide:hover svg{background:rgba(255,255,255,.12);color:#fff}
   .sidebar.collapsed #gcTogSide{justify-content:center;padding:2px 0 10px}
 }
-</style><style>#agSide { display: none; }
+</style><style>#agCalBox, #agLemb { display: none; }
+#sbRolagem { display: contents; }
 @media (min-width: 701px) {
   /* tela mais cheia: sem título e sem faixa de pendências na Agenda */
   body[data-aba="Agenda"] .topbar { display: none; }
@@ -1552,7 +1553,9 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
   body[data-aba="Agenda"] .sidebar #gcTogSide { padding: 0 6px 0; }
   body[data-aba="Agenda"] .sidebar .nav { gap: 1px; }
   body[data-aba="Agenda"] .sidebar .nav-btn { height: 31px; padding-top: 0; padding-bottom: 0; font-size: 13px; }
-  body[data-aba="Agenda"] .sidebar:not(.collapsed) #agSide { display: flex; flex-direction: column; gap: 12px; flex: 1 1 0; min-height: 0; overflow-y: auto; margin: 6px 6px 52px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.16); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.3) transparent; }
+  body[data-aba="Agenda"] .sidebar #sbRolagem { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; overflow-y: auto; margin: 4px -4px 52px; padding: 0 4px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.3) transparent; }
+  body[data-aba="Agenda"] .sidebar:not(.collapsed) #agCalBox { display: block; flex: none; margin: 6px 6px 4px; padding: 8px 0 10px; border-top: 1px solid rgba(255,255,255,.16); border-bottom: 1px solid rgba(255,255,255,.16); }
+  body[data-aba="Agenda"] .sidebar:not(.collapsed) #agLemb { display: flex; flex: none; margin: 12px 2px 6px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.16); }
 
   /* topo: ‹ Hoje ›  + busca + ícones */
   body[data-aba="Agenda"] #agendaPainel .ag-semana { flex-wrap: nowrap; gap: 12px; margin: 0; }
@@ -1592,7 +1595,7 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
   .agc-dia.sel i { background: var(--orange); }
 
   /* lembretes (sobre o azul) */
-  #agLemb { display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+  #agLemb { flex-direction: column; gap: 4px; }
   .agl-titulo { font-weight: 800; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.6); margin: 2px 4px 4px; }
   .agl-bloco { border-radius: 10px; }
   .agl-bloco.aberto { background: rgba(255,255,255,.1); }
@@ -7947,9 +7950,18 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   function pad(n){ return (n<10?'0':'')+n; }
   function caixa(){
     var sb = document.getElementById('sidebar'); if (!sb) return null;
-    var el = document.getElementById('agSide');
-    if (!el) { el = document.createElement('div'); el.id = 'agSide'; var nav = sb.querySelector('.nav'); if (nav && nav.nextSibling) sb.insertBefore(el, nav.nextSibling); else sb.appendChild(el); }
-    return el;
+    var w = document.getElementById('sbRolagem');
+    if (!w) {
+      var nav = sb.querySelector('.nav'); if (!nav) return null;
+      var lab = sb.querySelector('.nav-label');
+      w = document.createElement('div'); w.id = 'sbRolagem';
+      sb.insertBefore(w, lab || nav);
+      if (lab) w.appendChild(lab);
+      w.appendChild(nav);
+      var cal = document.createElement('div'); cal.id = 'agCalBox'; sb.insertBefore(cal, w);
+      var lem = document.createElement('div'); lem.id = 'agLemb'; w.appendChild(lem);
+    }
+    return { cal: document.getElementById('agCalBox'), lem: document.getElementById('agLemb') };
   }
   var aberto = '';
   function bonito(n){ return String(n||'').toLowerCase().replace(/(^|\s)([a-zà-ú])/g, function(m, e, c){ return e + c.toUpperCase(); }).replace(/\s(De|Da|Do|Dos|Das|E)(?=\s)/g, function(m){ return m.toLowerCase(); }); }
@@ -8020,7 +8032,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
         bar.insertBefore(bus, bar.firstChild); bar.insertBefore(nav, bar.firstChild);
       }
     }
-    var l = caixa(); if (l) l.innerHTML = '<div id="agCal">' + htmlCal() + '</div><div id="agLemb">' + htmlLembretes() + '</div>';
+    var l = caixa(); if (l) { l.cal.innerHTML = '<div id="agCal">' + htmlCal() + '</div>'; l.lem.innerHTML = htmlLembretes(); }
     var ths = document.querySelectorAll('#agendaGrade .ag-grade thead th');
     if (ths.length === 8) {
       var usados = diasComAtendimento();
