@@ -6137,6 +6137,9 @@ botoes += recebido
 : `<button class="icon-btn quick" title="Marcar como Recebido" onclick="executarAlternancia('${aba}', '${id}', 'alternarLab')">✓</button>`;
 botoes += `<button class="icon-btn quick" title="Chamar o laboratório no WhatsApp" onclick="gcLabZap('${id}')">☎</button>`;
 }
+if (abaAtual === 'Pacientes') {
+botoes += `<button class="icon-btn quick gc-virarlead" title="Não fechou tratamento: mover para Leads" onclick="virarLead('${id}')">➜</button>`;
+}
 if (abaAtual === 'Rotina') {
 const concluido = igual(r['Status'], 'Concluído');
 botoes += concluido
@@ -6731,6 +6734,21 @@ abrirModal(null, {
 'Observações': 'Referente a: ' + (dadosOrcamento['Tratamento'] || 'tratamento fechado')
 });
 }
+}
+function virarLead(id) {
+const p = (dados['Pacientes'] || []).find(x => String(x.ID) === String(id));
+if (!p) { mostrarToast('Paciente não encontrado.'); return; }
+const nome = p['Paciente'] || 'Este paciente';
+perguntarSimNao('Mover para Leads?', nome + ' ainda não fechou o tratamento? Ele sai de Pacientes e vai para Leads, com o mesmo telefone.', () => {
+const lead = { 'Paciente': p['Paciente'] || '', 'Telefone': p['Telefone'] || '', 'Contatos feitos': '0', 'Observações': p['Observações'] || '' };
+try { const prox = proximoContatoLead(lead); if (prox) lead['Próximo contato'] = prox; } catch (e) {}
+mostrarToast('Movendo para Leads...');
+const apagar = () => {
+if (ehRegistroVirtual(id)) { carregarDados(() => mostrarToast(nome + ' agora está em Leads.')); return; }
+chamarServidor('excluirRegistro', ['Pacientes', id], () => carregarDados(() => mostrarToast(nome + ' agora está em Leads.')), () => { carregarDados(); mostrarToast('Foi para Leads, mas não consegui tirar de Pacientes.'); });
+};
+chamarServidor('adicionarRegistro', ['Orçamentos', lead], apagar, () => mostrarToast('Não consegui mover para Leads.'));
+}, null);
 }
 function confirmarExclusao(id) {
 if (ehRegistroVirtual(id)) return;
