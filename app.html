@@ -1485,6 +1485,11 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
 .gc-fin.ok { background: #E1F3EA; color: #1E6B49; }
 .gc-fin.nada { background: transparent; color: #9AA3B2; cursor: default; padding-left: 0; }
 .gc-fin-m { display: none; }
+.nt-it { display: flex; align-items: flex-start; gap: 7px; padding: 2px 0; cursor: pointer; white-space: normal; }
+.nt-ck { flex: none; width: 15px; height: 15px; margin-top: 2px; border: 1.6px solid rgba(31,41,55,.45); border-radius: 4px; background: rgba(255,255,255,.6); padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; color: #fff; }
+.nt-it.ok .nt-ck { background: #2A9D6F; border-color: #2A9D6F; }
+.nt-it.ok span.t { text-decoration: line-through; opacity: .55; }
+.nt-limpar { margin-top: 6px; border: 0; background: transparent; color: rgba(31,41,55,.6); font: inherit; font-size: 11px; text-decoration: underline; cursor: pointer; padding: 0; }
 </style>
 <style>#gcLabs{position:fixed;inset:0;z-index:320;background:rgba(15,20,35,.5);display:flex;align-items:center;justify-content:center;padding:14px}
 #gcLabs .gl-box{background:var(--white,#fff);color:var(--text,#2b3a55);border-radius:18px;width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -3125,7 +3130,70 @@ return OPCOES[campo] || null;
     return { ok: 'Laboratório: ' + pre['Paciente'] + ', ' + material.toLowerCase() + (lab ? ', ' + lab : '') + ', envio ' + gcDataCurta(envio) + (d.entrega ? ', entrega ' + gcDataCurta(d.entrega) : '') };
   }
 
+
+  /* ===== Lista de compras por voz: cada coisa vira um item da nota "Lista de compras" ===== */
+  const GC_ITEM_ART = /^(?:o|a|os|as)\s+/i;
+  function gcItensDaFala(txt) {
+    return String(txt || '').split(/\s*(?:,|;|\be\b)\s*/i).map(x => x.replace(/[.!?]+$/, '').replace(GC_ITEM_ART, '').trim()).filter(x => x.length > 1)
+      .map(x => x.charAt(0).toUpperCase() + x.slice(1));
+  }
+  function gcOrdemLista(original) {
+    const t = String(original || '').replace(/\s+/g, ' ').trim();
+    const LST = '(?:n[ao]|à|a|em|pra|para)\\s+(?:minha\\s+|nossa\\s+)?lista(?:\\s+de\\s+compras?)?';
+    let m = new RegExp('^(?:por favor[,\\s]+)?(?:adicion(?:a|ar|e)|coloc(?:a|ar|e)|inclu(?:i|ir|a)|anot(?:a|ar|e)|p[õo]e|p[ôo]r|bota|acrescent(?:a|ar|e)|comprar|preciso comprar|tenho que comprar|falta(?:m)?|acabou(?:\\s+o|\\s+a)?)\\s+(.+?)\\s+' + LST + '[.!]?$', 'i').exec(t);
+    if (m) return { acao: 'add', itens: gcItensDaFala(m[1]) };
+    m = /^(?:por favor[,\s]+)?(?:minha\s+)?lista(?:\s+de\s+compras?)?\s*[:,\-–]\s*(.+)$/i.exec(t);
+    if (m) return { acao: 'add', itens: gcItensDaFala(m[1]) };
+    m = new RegExp('^(?:por favor[,\\s]+)?(?:adicion(?:a|ar|e)|coloc(?:a|ar|e)|anot(?:a|ar|e)|acrescent(?:a|ar|e))\\s+(?:na|à|a)\\s+(?:minha\\s+|nossa\\s+)?lista(?:\\s+de\\s+compras?)?\\s*[:,]?\\s+(.+)$', 'i').exec(t);
+    if (m) return { acao: 'add', itens: gcItensDaFala(m[1]) };
+    m = /^(?:por favor[,\s]+)?(?:tira|tirar|tire|remove|remover|remova|apaga|apagar|apague|retira|retirar|retire)\s+(.+?)\s+d[ao]\s+(?:minha\s+|nossa\s+)?lista(?:\s+de\s+compras?)?[.!]?$/i.exec(t);
+    if (m) return { acao: 'del', itens: gcItensDaFala(m[1]) };
+    m = /^(?:por favor[,\s]+)?(?:risca|riscar|risque|marca|marcar|marque)\s+(.+?)\s+d[ao]\s+(?:minha\s+|nossa\s+)?lista(?:\s+de\s+compras?)?[.!]?$/i.exec(t)
+      || /^(?:por favor[,\s]+)?(?:j[áa]\s+comprei|comprei)\s+(.+?)[.!]?$/i.exec(t);
+    if (m) return { acao: 'ok', itens: gcItensDaFala(m[1]) };
+    return null;
+  }
+  const gcLinhaItem = (x) => '- [' + (x.ok ? 'x' : ' ') + '] ' + x.txt;
+  function gcLerLista(texto) {
+    const linhas = String(texto || '').split(/\n/);
+    return { titulo: linhas[0] || 'Lista de compras', itens: linhas.slice(1).filter(l => l.trim()).map(l => {
+      const mm = /^\s*[-*•]\s*(?:\[([ xX])\]\s*)?(.*)$/.exec(l); return { txt: (mm ? mm[2] : l).trim(), ok: !!(mm && mm[1] && mm[1].toLowerCase() === 'x') };
+    }) };
+  }
+  async function gcAplicarLista(o) {
+    const sb = window.gcSb;
+    const rows = gcOk(await sb.from('notas').select('id,nota,status').ilike('nota', '%compras%').limit(100), 'Notas').data || [];
+    const alvo = rows.find(r => String(r.status || '') !== 'Feita' && /lista|compras/i.test(String(r.nota || '').split(/\n/)[0]));
+    const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    if (!o.itens.length) return { rev: 'Não entendi quais itens colocar na lista de compras.', original: 'adiciona ' };
+    if (!alvo) {
+      if (o.acao !== 'add') return { rev: 'Não achei a lista de compras.', original: '' };
+      const nota = { 'ID': crypto.randomUUID(), 'Nota': 'Lista de compras\n' + o.itens.map(i => gcLinhaItem({ txt: i, ok: false })).join('\n'), 'Data': '', 'Horário': '', 'Status': 'Pendente', 'Cor': '', 'Agendamento': '', 'Aviso': '', 'Agenda ID': '', 'Pós-op ID': '' };
+      gcOk(await sb.from('notas').insert(gcParaBanco('Notas', nota)), 'Notas');
+      return { ok: 'Criei a lista de compras: ' + o.itens.join(', ') + '.' };
+    }
+    const L = gcLerLista(alvo.nota);
+    const achados = [];
+    if (o.acao === 'add') {
+      o.itens.forEach(i => { const ex = L.itens.find(x => norm(x.txt) === norm(i)); if (ex) { ex.ok = false; } else { L.itens.push({ txt: i, ok: false }); achados.push(i); } });
+    } else {
+      o.itens.forEach(i => {
+        const k = L.itens.findIndex(x => norm(x.txt) === norm(i) || norm(x.txt).indexOf(norm(i)) >= 0);
+        if (k < 0) return;
+        achados.push(L.itens[k].txt);
+        if (o.acao === 'del') L.itens.splice(k, 1); else L.itens[k].ok = true;
+      });
+      if (!achados.length) return { rev: 'Não achei ' + o.itens.join(', ') + ' na lista de compras.', original: String(o.itens.join(', ')) };
+    }
+    const novo = [L.titulo].concat(L.itens.map(gcLinhaItem)).join('\n');
+    gcOk(await sb.from('notas').update({ nota: novo }).eq('id', alvo.id), 'Notas');
+    const lista = (o.acao === 'add' ? achados : achados).join(', ');
+    if (o.acao === 'add') return { ok: lista ? 'Na lista de compras: ' + lista + '.' : 'Esses itens já estavam na lista de compras.' };
+    return { ok: (o.acao === 'del' ? 'Tirei da lista: ' : 'Marquei como comprado: ') + lista + '.' };
+  }
   async function gcExecutarOrdem(original) {
+    const oLista = gcOrdemLista(original);
+    if (oLista) return gcAplicarLista(oLista);
     if (String(original).indexOf('LAB|') === 0) {
       let dl = null; try { dl = JSON.parse(String(original).slice(4)); } catch (e) {}
       if (dl) return gcRegistrarLab(dl);
@@ -7238,6 +7306,55 @@ notasPeriodo = 'mes';
 renderizarNotas();
 }
 function escolherPastaNota(k) { notasFiltro = notasFiltro === k ? 'todas' : k; renderizarNotas(); }
+function tituloCorpoNota(texto) {
+const bruto = String(texto || '').trim();
+if (!bruto) return { t: '', c: '' };
+let m = bruto.match(/^t[ií]tulo\s*[:\-–]\s*([^\n]+?)\s*(?:\n+([\s\S]*))?$/i);
+if (m) return { t: m[1].trim(), c: (m[2] || '').trim() };
+const linhas = bruto.split(/\n/);
+const primeira = linhas[0].trim();
+if (linhas.length > 1 && primeira.length <= 70 && !/[.!?]$/.test(primeira)) return { t: primeira, c: linhas.slice(1).join('\n').trim() };
+const tg = gerarTituloNota(bruto);
+return { t: tg, c: tg.replace(/…$/, '') === bruto.replace(/[.!?\s]+$/, '') ? '' : bruto };
+}
+function gerarTituloNota(texto) {
+let p = String(texto).replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s|\s[-–—]\s/)[0].replace(/[.!?:;,\s]+$/, '');
+const ini = /^(?:(?:lembrar|lembre-?me|lembrete|anotar|n[aã]o esquecer|preciso|precisamos|tenho que|tenho de|temos que|precisa|[eé] preciso|nota|ah|ent[aã]o|olha|oi|bom dia)(?:\s+(?:de|que|para|pra|a|o))?[:,]?\s+)+/i;
+const sem = p.replace(ini, '');
+if (sem.length >= 3) p = sem;
+const pal = p.split(' ');
+let t = pal.slice(0, 6).join(' ');
+if (pal.length > 6) t = t.replace(/\s+(?:de|da|do|das|dos|e|para|pra|com|a|o|as|os|em|no|na|à|às|ao|aos|um|uma)$/i, '') + '…';
+return t.charAt(0).toUpperCase() + t.slice(1);
+}
+function notaEhLista(raw) {
+const L = String(raw || '').split(/\n/);
+const corpo = L.slice(1).filter(l => l.trim());
+if (!corpo.length) return false;
+return (/lista|compras/i.test(L[0]) && L[0].length <= 70) || (corpo.length >= 2 && corpo.every(l => /^\s*[-*•]\s/.test(l)));
+}
+function itensDaNota(raw) {
+const L = String(raw || '').split(/\n/);
+return { titulo: L[0] || '', itens: L.slice(1).filter(l => l.trim()).map(l => { const m = /^\s*[-*•]\s*(?:\[([ xX])\]\s*)?(.*)$/.exec(l); return { txt: (m ? m[2] : l).trim(), ok: !!(m && m[1] && m[1].toLowerCase() === 'x') }; }) };
+}
+function textoDaLista(L) { return [L.titulo].concat(L.itens.map(x => '- [' + (x.ok ? 'x' : ' ') + '] ' + x.txt)).join('\n'); }
+function htmlItensNota(r, id) {
+const L = itensDaNota(r['Nota']);
+let h = L.itens.map((x, k) => '<div class="nt-it' + (x.ok ? ' ok' : '') + '" onclick="event.stopPropagation(); alternarItemNota(\'' + id + '\', ' + k + ')"><button type="button" class="nt-ck">' + (x.ok ? '✓' : '') + '</button><span class="t">' + escaparHTML(x.txt) + '</span></div>').join('');
+if (L.itens.some(x => x.ok)) h += '<button type="button" class="nt-limpar" onclick="event.stopPropagation(); limparItensNota(\'' + id + '\')">Limpar comprados</button>';
+return h;
+}
+function alternarItemNota(id, k) {
+const reg = (dados['Notas'] || []).find(x => String(x.ID) === String(id)); if (!reg) return;
+const L = itensDaNota(reg['Nota']); if (!L.itens[k]) return;
+L.itens[k].ok = !L.itens[k].ok;
+salvarAlteracaoRapida('Notas', reg, { 'Nota': textoDaLista(L) });
+}
+function limparItensNota(id) {
+const reg = (dados['Notas'] || []).find(x => String(x.ID) === String(id)); if (!reg) return;
+const L = itensDaNota(reg['Nota']); L.itens = L.itens.filter(x => !x.ok);
+salvarAlteracaoRapida('Notas', reg, { 'Nota': textoDaLista(L) });
+}
 function renderizarNotas() {
 const el = document.getElementById('notasLista');
 const hoje = dataHojeISO();
@@ -7276,8 +7393,8 @@ const d = converterParaISO(r['Data']);
 const atrasada = !feita && d && d < hoje;
 const id = escaparAtributo(r.ID);
 const paleta = notaPaletaAberta === String(r.ID);
-const linhas = String(r['Nota'] || '').split(/\n/);
-const titulo = linhas[0], corpo = linhas.slice(1).join('\n').trim();
+const tc = tituloCorpoNota(r['Nota']);
+const titulo = tc.t, corpo = tc.c;
 const hora = horaAmigavel(r['Horário']);
 const rodape = (hora ? hora : '') + (hora && d ? ', ' : '') + (d ? nomeDiaSemana(d) : '') || 'Sem data';
 const cor = corDaNota(r);
@@ -7285,7 +7402,7 @@ return '<div class="nt-card' + (feita ? ' feita' : '') + (paleta ? ' paleta-aber
 '<div class="nt-data">' + (d ? escaparHTML(formatarData(d)) : 'Sem data') + '</div>' +
 '<div class="nt-topo"><div class="nt-tit">' + escaparHTML(titulo) + '</div><button type="button" class="nt-edit" title="Editar" onclick="event.stopPropagation(); editarNota(\'' + id + '\')">' + ICONE_NOTA.editar + '</button></div>' +
 '<div class="nt-linha"></div>' +
-'<div class="nt-corpo">' + escaparHTML(corpo) + htmlAgendamentoNota(r, id) + '</div>' +
+'<div class="nt-corpo">' + (notaEhLista(r['Nota']) ? htmlItensNota(r, id) : escaparHTML(corpo)) + htmlAgendamentoNota(r, id) + '</div>' +
 (paleta ? '<div class="keep-paleta" onclick="event.stopPropagation()">' + CORES_NOTA.map((c, k) => '<button type="button" class="keep-cor' + (c === String(r['Cor'] || '').toUpperCase() ? ' sel' : '') + '" style="--cor:' + c + '" title="' + NOMES_COR[k] + '" onclick="mudarCorNota(\'' + id + '\', \'' + c + '\')"></button>').join('') + '</div>' : '') +
 '<div class="nt-pe"><span class="nt-hora' + (atrasada ? ' atrasada' : '') + '">' + ICONE_NOTA.relogio + escaparHTML(rodape) + '</span>' +
 '<span class="nt-acoes">' +
@@ -8494,7 +8611,7 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     var reg = (dados[aba]||[]).find(function(x){ return String(x.ID)===String(id); });
     var texto = (typeof mensagensCopiaveis!=='undefined' && mensagensCopiaveis[chave]) || '';
     if (reg) { try { texto = aba==='Agenda' ? mensagemAgenda(reg) : (aba==='Orçamentos' ? mensagemLeadPadrao(reg) : mensagemBoleto(reg)); } catch(e){} }
-    var tel = reg ? numeroWpp((reg['Telefone']||'') || obterTelefonePaciente(reg['Paciente']||'')) : '';
+    var tel = reg ? numeroWpp(obterTelefonePaciente(reg['Paciente']||'') || (reg['Telefone']||'')) : '';
     if (!texto) return copiarOrig.apply(this, arguments);
     if (!tel) {
       var cp = function(){ try { var ta=document.createElement('textarea'); ta.value=texto; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch(e){} };
