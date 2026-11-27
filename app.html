@@ -1534,6 +1534,9 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
 </style><style>#agCalBox, #agLemb { display: none; }
 #sbRolagem { display: contents; }
 @media (min-width: 701px) {
+  /* barra recolhida: o rosto da logo não pode ser cortado */
+  .sidebar.collapsed .brand { padding-left: 0; padding-right: 0; justify-content: center; }
+  .sidebar.collapsed .brand-icon { flex: none; }
   /* tela mais cheia: sem título e sem faixa de pendências na Agenda */
   body[data-aba="Agenda"] .topbar { display: none; }
   body[data-aba="Agenda"] #faixaPendencias { display: none !important; }
