@@ -3056,7 +3056,42 @@ return OPCOES[campo] || null;
   }
 
   // Devolve { ok: 'mensagem' } se executou, ou { rev: 'motivo', abrir: {aba, pre} | null } se precisa de correção
+  /* ===== Laboratório: "laboratório Maria Souza, coroa de zircônia, Dental X, envio hoje, entrega dia 5" ===== */
+  function gcLabDoTexto(resto) {
+    const segs = String(resto || '').split(/\s*,\s*/).map(x => x.trim()).filter(Boolean);
+    const d = { nome: segs[0] || '', material: segs[1] || '', lab: '', envio: '', entrega: '' };
+    segs.slice(2).forEach(sg => {
+      if (/\b(envio|enviad[oa]|enviei|enviamos|mandei|mandamos)\b/i.test(sg)) d.envio = gcInterpretarNota(sg).data || d.envio;
+      else if (/\b(entrega|previs[ãa]o|previsto|pronto|chega|volta)\b/i.test(sg)) d.entrega = gcInterpretarNota(sg).data || d.entrega;
+      else if (!d.lab) d.lab = sg.replace(/^laborat[óo]rio\s+(?:d[aeo]s?\s+)?/i, '').trim();
+    });
+    return d;
+  }
+  async function gcRegistrarLab(d) {
+    const nome = String(d.nome || '').replace(/\s+/g, ' ').trim();
+    const material = gcCap(String(d.material || '').trim());
+    const lab = String(d.lab || '').trim().toUpperCase();
+    const envio = d.envio || gcHojeISO();
+    const pre = { 'Paciente': nome.toUpperCase(), 'Material/Serviço': material, 'Laboratório': lab, 'Data de envio': envio, 'Previsão de entrega': d.entrega || '' };
+    const abrir = { aba: 'Laboratório', pre: pre };
+    const leg = 'laboratório ' + nome + ', ' + material + (lab ? ', ' + lab : '');
+    if (!nome) return { rev: 'Não entendi o nome do paciente do laboratório.', original: leg, abrir: abrir };
+    if (!material) return { rev: 'Faltou dizer o material ou serviço do laboratório de ' + nome.toUpperCase() + '.', original: leg, abrir: abrir };
+    const pac = await gcLocalizarPaciente(nome);
+    if (pac.tipo === 'ambiguo') return { rev: 'Há mais de um paciente parecido com "' + nome + '": ' + pac.opcoes.join(', ') + '. Complete o nome.', original: leg, abrir: abrir };
+    if (pac.tipo === 'novo') return { rev: '"' + nome.toUpperCase() + '" não está na lista de Pacientes. Confira o nome.', original: leg, abrir: abrir };
+    pre['Paciente'] = String(pac.paciente.paciente).trim().toUpperCase();
+    await gcAdicionarVarios('Laboratório', [{ 'Paciente': pre['Paciente'], 'Material/Serviço': material, 'Laboratório': lab, 'Data de envio': envio, 'Previsão de entrega': d.entrega || '', 'Status': 'Em andamento' }]);
+    return { ok: 'Laboratório: ' + pre['Paciente'] + ', ' + material.toLowerCase() + (lab ? ', ' + lab : '') + ', envio ' + gcDataCurta(envio) + (d.entrega ? ', entrega ' + gcDataCurta(d.entrega) : '') };
+  }
+
   async function gcExecutarOrdem(original) {
+    if (String(original).indexOf('LAB|') === 0) {
+      let dl = null; try { dl = JSON.parse(String(original).slice(4)); } catch (e) {}
+      if (dl) return gcRegistrarLab(dl);
+    }
+    const mlab = /^\s*(?:por favor[,\s]+)?laborat[óo]rio\b[\s,.:;-]*(.*)$/i.exec(String(original));
+    if (mlab && mlab[1] && mlab[1].indexOf(',') > 0) return gcRegistrarLab(gcLabDoTexto(mlab[1]));
     const p = gcInterpretarNota(original);
     const texto = p.texto || (original.charAt(0).toUpperCase() + original.slice(1));
     const nota = { 'Nota': texto, 'Data': p.data, 'Horário': p.hora, 'Status': 'Pendente', 'Cor': '', 'Agendamento': '', 'Aviso': '', 'Agenda ID': '', 'Pós-op ID': '' };
@@ -3235,6 +3270,13 @@ return OPCOES[campo] || null;
       }
       case 'remarcar': return (nome && (d || h)) ? 'remarcar ' + nome + ' para ' + (d ? d + ' ' : '') + (h ? 'às ' + h : '') : null;
       case 'desmarcar': return nome ? 'desmarcar ' + nome + (d ? ' ' + d : '') : null;
+      case 'laboratorio': {
+        const lim = (x) => String(x || '').replace(/[,.;|]/g, ' ').replace(/\s+/g, ' ').trim();
+        const iso = (x) => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
+        const mat = lim(o.material);
+        if (!nome || !mat) return null;
+        return 'LAB|' + JSON.stringify({ nome: nome, material: mat, lab: lim(o.laboratorio), envio: iso(o.data_envio), entrega: iso(o.previsao_entrega) });
+      }
       case 'posoperatorio': { const dc = gcDDMM(o.data_cirurgia); return (nome && dc) ? 'pós-operatório ' + nome + ', ' + proc + ', dia ' + dc : null; }
       default: return null;
     }
