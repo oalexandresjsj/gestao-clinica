@@ -1951,7 +1951,7 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
 (function () {
   var SUPABASE_URL = 'https://kazoyedpjzhaicgbviut.supabase.co';
   var SUPABASE_CHAVE_PUBLICA = 'sb_publishable_OfGcpyGLFnqyHjQLBimyaQ_WDyduup4';
-  var MINUTOS_SEM_USO = 30;
+  var MINUTOS_SEM_USO = 90;
   var sb = null, falhaCarga = '';
   try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_CHAVE_PUBLICA, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }); } catch (e) { falhaCarga = String(e && e.message || e); }
   window.gcSb = sb;
@@ -1999,7 +1999,7 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
     window.gcPerfil = p.data;
     $('gcLogin').classList.add('gc-oculto');
     $('gcSair').classList.remove('gc-oculto');
-    ['click', 'keydown', 'mousemove', 'touchstart'].forEach(function (ev) { document.addEventListener(ev, reiniciarOcioso, { passive: true }); });
+    ["click", "keydown", "mousemove", "touchstart", "scroll", "wheel", "pointerdown"].forEach(function (ev) { document.addEventListener(ev, reiniciarOcioso, { passive: true, capture: true }); });
     reiniciarOcioso();
     liberar();
   }
