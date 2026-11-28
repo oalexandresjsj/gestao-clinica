@@ -1214,11 +1214,6 @@ body.imp-rel #relFolha { display: block; font-family: inherit; color: #1B2330; -
   .ag-item.gc-sw-e::after { right: 10px; color: #C23A3A; opacity: 1; }
   .ag-item.gc-sw-d::after { left: 10px; color: #2B6FB9; opacity: 1; }
   .ag-item.gc-sw-e .nome, .ag-item.gc-sw-d .nome { opacity: .45; }
-  #gcMenu { position: fixed; inset: 0; z-index: 300; background: rgba(27,35,48,.45); display: flex; align-items: flex-end; }
-  #gcMenu .gm-box { width: 100%; background: #fff; border-radius: 20px 20px 0 0; padding: 16px 14px calc(18px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  #gcMenu .gm-t { grid-column: 1 / -1; font-weight: 800; font-size: 14px; color: var(--muted); padding: 0 4px 4px; }
-  #gcMenu button { min-height: 48px; border: 1px solid #E1E4EA; background: #F8F9FB; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 700; color: var(--blue-dark); }
-  #gcMenu .gm-sair { grid-column: 1 / -1; background: #FCECEC; border-color: #F3CFCF; color: #B93C3C; }
   .dlg-fundo { z-index: 400; }
   #gcMicBox { position: fixed; left: 0; right: 0; bottom: 0; z-index: 250; background: #FBD3AE; border-radius: 20px 20px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 30px rgba(27,35,48,.25); }
   #gcMicBox .mb-t { font-weight: 800; font-size: 16px; color: #1F2937; }
@@ -1490,6 +1485,16 @@ body .module-toolbar .toolbar-right #btnNovoRegistro::before { background-image:
 .nt-it.ok .nt-ck { background: #2A9D6F; border-color: #2A9D6F; }
 .nt-it.ok span.t { text-decoration: line-through; opacity: .55; }
 .nt-limpar { margin-top: 6px; border: 0; background: transparent; color: rgba(31,41,55,.6); font: inherit; font-size: 11px; text-decoration: underline; cursor: pointer; padding: 0; }
+#gcEng { margin-left: auto; flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; align-self: center; }
+#gcEng:hover { background: rgba(255,255,255,.22); }
+.sidebar.collapsed #gcEng { display: none; }
+#gcConfig { display: none; position: fixed; left: 10px; bottom: 58px; z-index: 99990; background: #354761; color: #fff; border: 0; border-radius: 999px; padding: 6px 12px; font: 700 11px 'Nunito', Arial, sans-serif; cursor: pointer; opacity: .85; }
+#gcConfig:hover { opacity: 1; }
+@media (min-width: 701px) {
+  body:has(.sidebar.collapsed) #gcConfig { display: block; }
+  .sidebar { position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto; }
+  body[data-aba="Notas"] .main > .page.active > .panel { overflow-y: auto; overflow-x: hidden; }
+}
 </style>
 <style>#gcLabs{position:fixed;inset:0;z-index:320;background:rgba(15,20,35,.5);display:flex;align-items:center;justify-content:center;padding:14px}
 #gcLabs .gl-box{background:var(--white,#fff);color:var(--text,#2b3a55);border-radius:18px;width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -1644,7 +1649,26 @@ body.gc-ro #btnNovoRegistro,body.gc-ro #btnImportarAgenda,body.gc-ro #btnLabs,bo
 
 #agTip { position: fixed; z-index: 1300; display: none; max-width: 300px; background: #1B2330; color: #fff; font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; box-shadow: 0 8px 24px rgba(27,35,48,.25); white-space: pre-line; pointer-events: none; }
 .st-menu .st-info { font-size: 12px; color: #5B6577; padding: 0 6px 6px; max-width: 220px; line-height: 1.4; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
-</style><link rel="manifest" href="manifest.webmanifest">
+
+#stFundo { position: fixed; inset: 0; z-index: 1190; background: rgba(27,35,48,.28); pointer-events: none; }
+.st-menu.st-janela { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%); width: min(460px, 92vw); max-height: 88vh; overflow-y: auto; padding: 22px 24px 20px; border-radius: 16px; box-shadow: 0 24px 70px rgba(27,35,48,.35); display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; z-index: 1200; }
+.st-menu.st-janela > * { min-width: 0; }
+.st-menu.st-janela .st-nome, .st-menu.st-janela .st-info, .st-menu.st-janela .st-tel, .st-menu.st-janela .st-sep, .st-menu.st-janela .st-acoes { grid-column: 1 / -1; }
+.st-menu.st-janela .st-nome { font-size: 17px; line-height: 1.3; max-width: none; white-space: normal; padding: 0 28px 12px 0; margin: 0; }
+.st-menu.st-janela .st-info { font-size: 14px; line-height: 1.55; color: #3B4352; max-width: none; padding: 0 0 12px; margin: 0; }
+.st-menu.st-janela .st-info div { margin-bottom: 6px; }
+.st-menu.st-janela .st-info div:last-child { margin-bottom: 0; }
+.st-menu.st-janela .st-tel { font-size: 15px; padding: 11px 14px; margin: 0; border-radius: 10px; }
+.st-menu.st-janela button:not(.st-x):not(.ico):not(.st-tel) { padding: 11px 12px; font-size: 14px; border: 1px solid var(--border); border-radius: 10px; }
+.st-menu.st-janela button.ativo { border-color: #B8C6E0; }
+.st-menu.st-janela .st-sep { margin: 4px 0 0; }
+.st-menu.st-janela .st-acoes { gap: 12px; padding-top: 4px; }
+.st-menu.st-janela .st-acoes .ico { width: auto; min-width: 52px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 10px; justify-content: center; font-size: 17px; }
+.st-menu.st-janela .st-x { position: absolute; right: 12px; top: 10px; width: 32px; height: 32px; padding: 0; border: 0; background: transparent; font-size: 24px; line-height: 1; color: #7A8496; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.st-menu.st-janela .st-x:hover { background: #F3F4F6; }
+</style><link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4D6080">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -3392,6 +3416,8 @@ return OPCOES[campo] || null;
   async function gcOrdensComIA(texto) {
     const regras = () => gcDividirOrdens(texto);
     const sb = window.gcSb;
+    /* sem palavra de agenda/laboratório/pós-operatório, ou lista de compras: não precisa esperar a IA */
+    if (!/agend|marc|marq|desmarc|remarc|reagend|encaix|reserv|cancel|lab|p[óo]s|cirurg|oper|confirm|falt|compare/i.test(String(texto || '')) || gcOrdemLista(String(texto || '').trim())) return regras();
     try {
       if (Date.now() < gcIaPausaAte || !sb || !sb.functions || String(texto || '').length > 500) return regras();
       const resp = await Promise.race([
@@ -3612,8 +3638,9 @@ return isNaN(num) ? 0 : num;
 function somarValores(lista, campo) {
 return lista.reduce((acumulado, item) => acumulado + parseNumero(item[campo]), 0);
 }
+const FMT_BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 function formatarMoeda(valor) {
-return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+return FMT_BRL.format(Number(valor || 0));
 }
 function fimDoMesAtualISO() {
 const agora = new Date();
@@ -4323,6 +4350,7 @@ if (e.target.closest && e.target.closest('#stMenu')) return;
 const menu = document.getElementById('stMenu');
 const chip = e.target.closest && e.target.closest('.ag-pac');
 const id = menu.dataset.id;
+if (chip && chip !== chipMenuStatus) { fecharMenuStatus(); return; }
 e.stopPropagation();
 e.preventDefault();
 if (chip && chip === chipMenuStatus) abrirPerfilPacienteDaAgenda(id); else fecharMenuStatus();
@@ -6099,8 +6127,9 @@ const filtroStatus = document.getElementById('statusFilter').value;
 const baseRegistros = abaAtual === 'Indicações'
 ? obterListaCompletaIndicacoes()
 : (dados[abaAtual] || []);
-const filtrados = baseRegistros.filter(registro => {
-const bateBusca = campos.some(campo => String(registro[campo] ?? '').toLowerCase().includes(busca));
+const _oculta = !busca && !filtroStatus && (abaAtual === 'Boletos' || abaAtual === 'Agenda');
+const filtrados = _oculta ? [] : baseRegistros.filter(registro => {
+const bateBusca = !busca || campos.some(campo => String(registro[campo] ?? '').toLowerCase().includes(busca));
 if (!bateBusca) return false;
 if (abaAtual === 'Agenda' && !busca && !agendaNoPeriodo(registro)) return false;
 if (abaAtual === 'Agenda' && !busca && !filtroStatus && ehDesmarcado(registro)) return false;
@@ -8113,6 +8142,24 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     renderizarTabela();
   });
 })();
+
+/* ===== Engrenagem de configurações ===== */
+(function(){
+  var SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+  function abrir(e){ if (e) e.stopPropagation(); if (typeof window.gcAbrirPerfil === 'function') window.gcAbrirPerfil(); }
+  function montar(){
+    var b = document.querySelector('.sidebar .brand');
+    if (b && !document.getElementById('gcEng')) {
+      var g = document.createElement('button'); g.type = 'button'; g.id = 'gcEng'; g.title = 'Configurações'; g.setAttribute('aria-label', 'Configurações'); g.innerHTML = SVG;
+      g.addEventListener('click', abrir); b.appendChild(g);
+    }
+    if (!document.getElementById('gcConfig')) {
+      var c = document.createElement('button'); c.type = 'button'; c.id = 'gcConfig'; c.textContent = 'Configurações';
+      c.addEventListener('click', abrir); document.body.appendChild(c);
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', montar); else montar();
+})();
 </script><script>/* Agenda no PC: calendário e lembretes na lateral, navegação ‹ Hoje ›, grade na altura toda */
 (function(){
   var mq = window.matchMedia('(max-width: 700px)');
@@ -8275,6 +8322,10 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
   });
   document.addEventListener('mouseout', function(e){ var c = e.target.closest && e.target.closest('.ag-pac'); if (c && !(e.relatedTarget && c.contains(e.relatedTarget))) esconderTip(); });
   document.addEventListener('scroll', esconderTip, true);
+  if (typeof window.fecharMenuStatus === 'function') {
+    var fecharOrig = window.fecharMenuStatus;
+    window.fecharMenuStatus = function(){ var f = document.getElementById('stFundo'); if (f) f.remove(); return fecharOrig.apply(this, arguments); };
+  }
   if (typeof window.abrirMenuStatusAgenda === 'function') {
     var menuOrig = window.abrirMenuStatusAgenda;
     window.abrirMenuStatusAgenda = function(ev, id){
@@ -8289,8 +8340,11 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
         var d = document.createElement('div'); d.className = 'st-info';
         d.innerHTML = linhas.filter(Boolean).map(function(l){ return '<div>' + escaparHTML(l) + '</div>'; }).join('');
         nome.insertAdjacentElement('afterend', d);
-        var alvo = chip.getBoundingClientRect(), mh = m.offsetHeight;
-        if (alvo.bottom + 4 + mh > window.innerHeight - 8) m.style.top = Math.max(8, alvo.top - mh - 4) + 'px';
+      }
+      if (m && pc()) {
+        m.classList.add('st-janela'); m.style.left = ''; m.style.top = '';
+        if (!m.querySelector('.st-x')) { var x = document.createElement('button'); x.type = 'button'; x.className = 'st-x'; x.title = 'Fechar'; x.textContent = '×'; x.onclick = function(e){ e.stopPropagation(); fecharMenuStatus(); }; m.appendChild(x); }
+        if (!document.getElementById('stFundo')) { var f = document.createElement('div'); f.id = 'stFundo'; document.body.appendChild(f); }
       }
       return out;
     };
@@ -8655,26 +8709,6 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     rotular();
   })();
 
-  /* menu e botão voltar */
-  var ultima = 'Agenda';
-  function montarMenu(){
-    var f = document.getElementById('gcMenu'); if (f) f.remove();
-    f = document.createElement('div'); f.id='gcMenu';
-    var h = '<div class="gm-box"><div class="gm-t">Ir para</div>';
-    document.querySelectorAll('.sidebar .nav-btn').forEach(function(b, i){
-      var tx = (b.querySelector('.nav-text')||b).textContent.trim();
-      h += '<button type="button" data-i="'+i+'">'+tx+'</button>';
-    });
-    h += '<button type="button" class="gm-sair" data-sair="1">Sair</button></div>';
-    f.innerHTML = h; document.body.appendChild(f);
-    f.addEventListener('click', function(e){
-      var b = e.target.closest('button');
-      if (!b) { f.remove(); return; }
-      f.remove();
-      if (b.dataset.sair) { var s=document.getElementById('gcSair'); if (s) s.click(); return; }
-      var nb = document.querySelectorAll('.sidebar .nav-btn')[Number(b.dataset.i)]; if (nb) nb.click();
-    });
-  }
   /* gaveta lateral (igual ao menu do computador): logo, Developed by Alexandre, abas, perfil e sair */
   function gaveta(abrir){
     var bg = document.getElementById('gcGavetaBg');
@@ -8847,7 +8881,6 @@ window.toastTimer = setTimeout(() => toast.classList.remove('show'), (opcoes && 
     if (!d) { d = document.createElement('span'); d.id = 'gcPonto'; ic.appendChild(d); }
     return d;
   }
-  function pedidoOuErro(q){ return q; }
   function consultar(){
     var sb = sbx(); if (!sb || !ehAdmin) return Promise.resolve();
     var q = sb.from('perfis').select('id,nome,email,criado_em').eq('ativo', false).is('liberado_em', null).order('criado_em');
